@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <h2 class="text-center mb-4">👨‍💼 Welcome, Admin</h2>
+
+    <!-- Dashboard Summary -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Registered Students</h5>
+                    <p class="card-text fs-4">{{ student_count }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Sessions Today</h5>
+                    <p class="card-text fs-4">{{ today_sessions }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Year Promotion -->
+    <div class="mb-4">
+        <form action="/admin/promote-students" method="POST"
+              onsubmit="return confirm('Are you sure you want to promote all students to the next academic year?');">
+              <button class="btn btn-warning w-100">🔁 Promote Students to Next Year</button>
+        </form>
+
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="/admin/manage-teachers" class="btn btn-outline-primary w-100">👨‍🏫Teachers</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/admin/add-subject" class="btn btn-outline-secondary w-100">📘Subjects</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/admin/manage-departments" class="btn btn-outline-dark w-100">🏫Departments</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/admin/manage-students" class="btn btn-outline-primary w-100">🎓Students</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/admin/manage-campuses" class="btn btn-outline-danger w-100">📍Campus Location</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/" class="btn btn-secondary w-100">🏠 Return Home</a>
+        </div>
+        <div class="col-md-4">
+            <a href="/admin/logout" class="btn btn-danger w-100">🔓 Logout</a>
+        </div>
+    </div>
+</div>
+<div class="notice">
+    <marquee behavior="scroll" direction="left" scrollamount="6">
+      📢 Important Note: Delete all the existing fourth year students data before executing the promotion !
+    </marquee>
+</div>
+</body>
+</html>

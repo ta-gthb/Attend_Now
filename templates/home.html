@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AttendNow</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            border-radius: 1rem;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body class="container text-center py-5">
+    <h1>🎓 Welcome to AttendNow ! </h1>
+
+    <div class="row justify-content-center">
+        <!-- Student Section -->
+        <div class="col-md-3">
+            <div class="card p-4 mb-4">
+                <h3>Student</h3>
+                <a href="/student/register" class="btn btn-primary mb-2">📝 Register</a>
+                <a href="/student/login" class="btn btn-secondary">🔐 Login</a>
+            </div>
+        </div>
+
+        <!-- Teacher Login Form -->
+        <div class="col-md-4">
+            <div class="card p-4 mb-4">
+                <h3>👨‍🏫 Teacher Login</h3>
+                {% if teacher_error %}
+                    <div class="alert alert-danger">{{ teacher_error }}</div>
+                {% endif %}
+                <form method="POST" action="/teacher/login-inline">
+                    <input type="text" name="teacher_username" class="form-control mb-2" placeholder="Username" required>
+                    <input type="password" name="teacher_password" class="form-control mb-3" placeholder="Password" required>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Login Form -->
+        <div class="col-md-4">
+            <div class="card p-4 mb-4">
+                <h3>🛠️ Admin Login</h3>
+                {% if admin_error %}
+                    <div class="alert alert-danger">{{ admin_error }}</div>
+                {% endif %}
+                <form action="/admin/login-inline" method="POST">
+            <div class="mb-2">
+                <input type="text" class="form-control" name="admin_username" placeholder="Username" required>
+            </div>
+            <div class="mb-2">
+                <input type="password" class="form-control" name="admin_password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+            {% if admin_error %}
+                <p class="text-danger mt-2">{{ admin_error }}</p>
+            {% endif %}
+        </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

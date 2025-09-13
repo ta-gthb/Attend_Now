@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teacher Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>👨‍🏫 Welcome, {{ teacher_name }}</h2>
+        <a href="/teacher/logout" class="btn btn-danger">Logout</a>
+    </div>
+
+    <!-- Create Session Form -->
+    <div class="card p-4 mb-4">
+        <h4>Create Attendance Session</h4>
+        <form method="POST">
+            <div class="mb-2">
+                <label class="form-label">Subject</label>
+                <select name="subject_id" class="form-select" required>
+                    {% for id, name, code in subjects %}
+                        <option value="{{ id }}">{{ name }} ({{ code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" class="form-control" required>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label">Start Time (HH:MM)</label>
+                <input type="time" name="start_time" class="form-control" required>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label">Time Limit (Minutes)</label>
+                <input type="number" name="time_limit" class="form-control" required>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label">Department</label>
+                <select class="form-select" name="department" required>
+                    <option value="">Select Department</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Year</label>
+                <select name="year" class="form-select" required>
+                    <option value="First">First Year</option>
+                    <option value="Second">Second Year</option>
+                    <option value="Third">Third Year</option>
+                    <option value="Fourth">Fourth Year</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">➕ Create Session</button>
+        </form>
+    </div>
+
+    <!-- Class Sessions Grouped by Year -->
+    <div class="card p-4">
+        <h4>📅 Your Class Sessions</h4>
+
+        {% set year_sessions = {} %}
+        {% for sid, subject, date, time, limit, year in sessions %}
+            {% if year not in year_sessions %}
+                {% set _ = year_sessions.update({year: []}) %}
+            {% endif %}
+            {% set _ = year_sessions[year].append((sid, subject, date, time, limit)) %}
+        {% endfor %}
+
+        {% for year, session_list in year_sessions.items() %}
+            <h5 class="mt-4 text-primary">{{ year }} Year</h5>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Subject</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Duration (min)</th>
+                        <th>Actions</th>
+                        <th>QR Code</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sid, subject, date, time, limit in session_list %}
+                        <tr>
+                            <td>{{ subject }}</td>
+                            <td>{{ date }}</td>
+                            <td>{{ time }}</td>
+                            <td>{{ limit }}</td>
+                            <td>
+                                <a href="/teacher/session/{{ sid }}/export" class="btn btn-sm btn-success">📥 Export CSV</a>
+                                <a href="/teacher/session/{{ sid }}/delete" class="btn btn-sm btn-danger ms-2">🗑️ Delete</a>
+                            </td>
+                            <td>
+                                <!-- QR Code for this session -->
+                                <img src="{{ url_for('session_qr', session_id=sid) }}" alt="QR Code" width="80" height="80">
+                                <div>
+                                    <small>Scan to mark attendance</small>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!-- templates/add_subject.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Subject</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+  <h3>➕ Add Subject</h3>
+  <a href="/admin/dashboard" class="btn btn-secondary mb-3">🏠 Dashboard</a>
+
+  <!-- Subject Add/Edit Form -->
+  <form method="POST" action="/admin/add-subject">
+    <input type="hidden" name="subject_id" value="{{ edit_subject.id if edit_subject }}">
+    <div class="mb-3">
+      <label class="form-label">Subject Name</label>
+      <input type="text" name="subject_name" class="form-control" value="{{ edit_subject.subject_name if edit_subject }}" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Subject Code</label>
+      <input type="text" name="subject_code" class="form-control" value="{{ edit_subject.subject_code if edit_subject }}" required>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      {{ "Update Subject" if edit_subject else "Add Subject" }}
+    </button>
+  </form>
+
+  <hr class="my-4">
+
+  <h4>📘 Existing Subjects</h4>
+  {% if subjects %}
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Subject Name</th>
+          <th>Subject Code</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for id, name, code in subjects %}
+        <tr>
+          <td>{{ name }}</td>
+          <td>{{ code }}</td>
+          <td>
+            <a href="/admin/edit-subject/{{ id }}" class="btn btn-warning btn-sm">✏️ Edit</a>
+            <a href="/admin/delete-subject/{{ id }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure to delete this subject?')">🗑️ Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No subjects available yet.</p>
+  {% endif %}
+</div>
+</body>
+</html>

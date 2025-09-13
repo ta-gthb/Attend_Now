@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attendance</title>
+</head>
+<body>
+    <h2>Attendance for {{ subject }} - {{ date }}</h2>
+    <table border="1">
+        <tr>
+            <th>Student Name</th>
+            <th>Roll No</th>
+            <th>Time Marked</th>
+        </tr>
+        {% for entry in attendance %}
+        <tr>
+            <td>{{ entry[0] }}</td>
+            <td>{{ entry[1] }}</td>
+            <td>{{ entry[2] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <p><a href="/teacher/session/{{ session_id }}/export">📥 Export as CSV</a></p>
+
+</body>
+</html>

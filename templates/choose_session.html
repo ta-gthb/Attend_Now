@@ -1,0 +1,42 @@
+<!-- templates/choose_session.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Choose Attendance Session</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Welcome, {{ student_name }}</h2>
+        <a href="/student/logout" class="btn btn-danger">🔓 Logout</a>
+    </div>
+
+    <div class="card shadow-sm p-4">
+        <h4 class="mb-3">🕒 Select a class session to mark attendance</h4>
+
+        {% if sessions %}
+        <form method="POST" action="/student/mark-attendance">
+            <input type="hidden" name="student_id" value="{{ session['student_id'] }}">
+
+            <div class="mb-3">
+                <label for="session_id" class="form-label">Active Sessions</label>
+                <select name="session_id" id="session_id" class="form-select" required>
+                    {% for sid, subject in sessions %}
+                        <option value="{{ sid }}">{{ subject }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-success">📌 Mark Attendance</button>
+        </form>
+        {% else %}
+        <div class="alert alert-info">No active sessions available right now.</div>
+        {% endif %}
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Login - Face Recognition & QR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+    <style>
+        video, canvas {
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .loading {
+            font-size: 16px;
+            color: #555;
+        }
+        #qr-canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <h2 class="mb-4 text-center">🎓 Student Login - Face Recognition & QR</h2>
+
+    <div id="status" class="text-center loading mb-3">🔄 Loading models, please wait...</div>
+
+    <form method="POST" enctype="multipart/form-data" class="text-center" id="attendanceForm">
+        <div class="mb-3">
+            <video id="video" width="320" height="240" autoplay muted playsinline></video><br>
+            <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+        </div>
+
+        <!-- QR Code Scanner -->
+        <div class="mb-3">
+            <button type="button" class="btn btn-info mb-2" id="scanQrBtn">Scan QR Code</button>
+            <canvas id="qr-canvas" width="320" height="240"></canvas>
+            <input type="hidden" name="qr_token" id="qr_token">
+        </div>
+
+        <!-- Hidden inputs -->
+        <input type="hidden" name="face_image" id="face_image_data">
+        <input type="hidden" name="latitude" id="latitude">
+        <input type="hidden" name="longitude" id="longitude">
+
+        <button type="button" class="btn btn-primary btn-lg mt-2" id="captureBtn" disabled>📷 Capture, Scan QR & Login</button>
+    </form>
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-secondary">🏠 Return to Home</a>
+    </div>
+</div>
+
+<script>
+    const captureBtn = document.getElementById('captureBtn');
+    const scanQrBtn = document.getElementById('scanQrBtn');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const faceImageData = document.getElementById('face_image_data');
+    const latField = document.getElementById('latitude');
+    const lonField = document.getElementById('longitude');
+    const statusText = document.getElementById('status');
+    const qrTokenField = document.getElementById('qr_token');
+    let qrScanned = false;
+    let scanning = false;
+
+    // Load models and enable webcam
+    window.onload = async () => {
+        try {
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri('/static/models'),
+                faceapi.nets.faceLandmark68Net.loadFromUri('/static/models')
+            ]);
+            statusText.textContent = "✅ Models loaded successfully!";
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            captureBtn.disabled = false;
+        } catch (err) {
+            statusText.textContent = "❌ Failed to load models or access webcam.";
+            alert("Error: " + err.message);
+        }
+    };
+
+    scanQrBtn.onclick = () => {
+        if (scanning) return;
+        scanning = true;
+        statusText.textContent = "🔍 Scanning for QR code...";
+        qrCanvas.style.display = "block";
+        scanFrame();
+    };
+
+    function scanFrame() {
+        if (!scanning) return;
+        const ctx = qrCanvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
+        const imageData = ctx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+        const code = jsQR(imageData.data, qrCanvas.width, qrCanvas.height);
+        if (code) {
+            qrTokenField.value = code.data;
+            qrScanned = true;
+            scanning = false;
+            statusText.textContent = "✅ QR code scanned! Now capture your face.";
+            qrCanvas.style.display = "none";
+            captureBtn.disabled = false;
+        } else {
+            requestAnimationFrame(scanFrame);
+        }
+    }
+
+    captureBtn.onclick = async () => {
+        if (!qrScanned || !qrTokenField.value) {
+            alert("❌ Please scan the classroom QR code first.");
+            return;
+        }
+
+        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+
+        if (!detection) {
+            alert("❌ No face detected. Please try again.");
+            return;
+        }
+
+        // Capture image
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        faceImageData.value = canvas.toDataURL('image/jpeg');
+
+        // Get GPS location
+        if (!navigator.geolocation) {
+            alert("❌ Geolocation not supported by your browser.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                latField.value = pos.coords.latitude;
+                lonField.value = pos.coords.longitude;
+                document.getElementById('attendanceForm').submit();
+            },
+            (err) => {
+                alert("❌ Could not retrieve your location. Please enable location access.");
+            }
+        );
+    };
+</script>
+</body>
+</html>

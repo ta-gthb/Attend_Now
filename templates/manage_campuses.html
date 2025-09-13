@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Campuses</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <h2>📍 Manage Campuses</h2>
+    <a href="/admin/dashboard" class="btn btn-secondary mb-3">🏠 Back to Dashboard</a>
+
+    <div class="card p-4 mb-4">
+        <h4>Add New Campus</h4>
+        <form method="POST">
+            <div class="mb-3">
+                <label>Campus Name</label>
+                <input type="text" name="campus_name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label>Latitude</label>
+                <input type="text" name="latitude" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label>Longitude</label>
+                <input type="text" name="longitude" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success">➕ Add Campus</button>
+        </form>
+    </div>
+
+    <div class="card p-4">
+        <h4>All Campuses</h4>
+        <table class="table table-bordered">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for campus in campuses %}
+                <tr>
+                    <td>{{ campus[1] }}</td>
+                    <td>{{ campus[2] }}</td>
+                    <td>{{ campus[3] }}</td>
+                    <td>
+                        <a href="/admin/edit-campus/{{ campus[0] }}" class="btn btn-warning btn-sm">✏️ Edit</a>
+                        <form action="/admin/delete-campus/{{ campus[0] }}" method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this campus?');">
+                            <button class="btn btn-danger btn-sm">🗑️ Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
