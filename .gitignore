@@ -1,5 +1,19 @@
-.venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
+
+# Database files
 *.db
-.env
+*.sqlite3
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# SSL Certificates (Never commit private keys!)
+cert.pem
+key.pem
+
+# Instance folder (if you use one for Flask)
+instance/

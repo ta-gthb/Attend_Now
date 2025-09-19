@@ -53,17 +53,14 @@
                     <div class="alert alert-danger">{{ admin_error }}</div>
                 {% endif %}
                 <form action="/admin/login-inline" method="POST">
-            <div class="mb-2">
-                <input type="text" class="form-control" name="admin_username" placeholder="Username" required>
-            </div>
-            <div class="mb-2">
-                <input type="password" class="form-control" name="admin_password" placeholder="Password" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Login</button>
-            {% if admin_error %}
-                <p class="text-danger mt-2">{{ admin_error }}</p>
-            {% endif %}
-        </form>
+                    <div class="mb-2">
+                        <input type="text" class="form-control" name="admin_username" placeholder="Username" required>
+                    </div>
+                    <div class="mb-2">
+                        <input type="password" class="form-control" name="admin_password" placeholder="Password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
             </div>
         </div>
     </div>

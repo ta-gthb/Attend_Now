@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Scan QR — Mark Attendance</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Working CDN for html5-qrcode (pick either jsdelivr or unpkg) -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- alternative:
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/dist/html5-qrcode.min.js"></script>
+  -->
+
+  <style>
+    #qr-reader {
+      width: 320px;
+      margin: 0 auto;
+    }
+    #cameraSelect {
+      max-width: 320px;
+      margin: 0 auto 10px;
+    }
+    .status {
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3>📷 Scan Session QR, {{ student_name }}</h3>
+      <div>
+        <a href="/" class="btn btn-secondary btn-sm">Home</a>
+        <a href="/student/logout" class="btn btn-danger btn-sm ms-2">Logout</a>
+      </div>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <div class="text-center mb-2 status" id="statusText">🔄 Initialising scanner...</div>
+
+      <div class="d-flex justify-content-center mb-2">
+        <select id="cameraSelect" class="form-select" aria-label="Select camera">
+          <option value="">Loading cameras...</option>
+        </select>
+      </div>
+
+      <div class="d-flex justify-content-center gap-2 mb-3">
+        <button id="startBtn" class="btn btn-primary">▶ Start Scanner</button>
+        <button id="stopBtn" class="btn btn-danger" disabled>⏹ Stop</button>
+      </div>
+
+      <div id="qr-reader" class="mx-auto"></div>
+      <div class="text-center mt-3">
+        <small class="text-muted">Choose camera (front/rear) then press Start. Scanner will auto-submit the scanned QR.</small>
+      </div>
+    </div>
+
+    <!-- POSTs to mark attendance. Flask route must accept 'qr_data' in form data. -->
+    <form id="qrForm" method="POST" action="/student/mark-attendance">
+      <input type="hidden" name="qr_data" id="qr_data">
+      <!-- you can optionally include other hidden fields if your mark_attendance expects them -->
+    </form>
+
+  </div>
+
+<script>
+  const statusText = document.getElementById('statusText');
+  const cameraSelect = document.getElementById('cameraSelect');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const qrForm = document.getElementById('qrForm');
+  const qrDataField = document.getElementById('qr_data');
+
+  let html5QrCode = null;
+  let currentCameraId = null;
+
+  function setStatus(msg, isError=false) {
+    statusText.textContent = msg;
+    statusText.style.color = isError ? '#b22222' : '#2c3e50';
+  }
+
+  async function listCameras() {
+    setStatus('🔍 Detecting cameras...');
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      cameraSelect.innerHTML = '';
+      if (!devices || devices.length === 0) {
+        cameraSelect.innerHTML = '<option value="">No cameras found</option>';
+        setStatus('⚠️ No cameras found on this device.', true);
+        return;
+      }
+
+      // Prefer a back/rear camera if label suggests it
+      let preferredIndex = 0;
+      devices.forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.label || d.id;
+        cameraSelect.appendChild(opt);
+
+        const labelLower = (d.label || '').toLowerCase();
+        if (labelLower.includes('back') || labelLower.includes('rear') || labelLower.includes('environment')) {
+          preferredIndex = i;
+        }
+      });
+
+      cameraSelect.selectedIndex = preferredIndex;
+      currentCameraId = cameraSelect.value;
+      setStatus('✅ Cameras loaded. Choose camera and press Start.');
+    } catch (err) {
+      console.error('listCameras error', err);
+      cameraSelect.innerHTML = '<option value="">Error listing cameras</option>';
+      setStatus('❌ Could not enumerate cameras — ensure page is served over HTTPS and permissions are allowed.', true);
+    }
+  }
+
+  async function startScanner() {
+    // if already running, stop first
+    if (html5QrCode) {
+      try { await html5QrCode.stop(); } catch(e) {}
+      html5QrCode.clear();
+      html5QrCode = null;
+    }
+
+    const cameraId = cameraSelect.value;
+    if (!cameraId) {
+      setStatus('❌ Select a camera first.', true);
+      return;
+    }
+
+    currentCameraId = cameraId;
+    html5QrCode = new Html5Qrcode("qr-reader");
+
+    const config = { fps: 10, qrbox: { width: 260, height: 260 } };
+
+    setStatus('🔄 Starting scanner — granting camera permission...');
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    try {
+      await html5QrCode.start(
+        cameraId,
+        config,
+        qrCodeMessage => {
+          // Success callback when QR is decoded
+          setStatus('✅ QR scanned. Submitting...');
+          // stop scanner before submit
+          html5QrCode.stop().then(() => {
+            html5QrCode.clear();
+            html5QrCode = null;
+            stopBtn.disabled = true;
+            startBtn.disabled = false;
+          }).catch(()=>{});
+
+          // Put scanned payload in form and submit
+          qrDataField.value = qrCodeMessage;
+          // submit the form (POST)
+          qrForm.submit();
+        },
+        errorMessage => {
+          // scan error callback — ignore noisy errors
+          //console.debug('QR scan no result yet:', errorMessage);
+        }
+      );
+      setStatus('🔎 Scanner running — point camera to the QR code.');
+    } catch (err) {
+      console.error('start error', err);
+      setStatus('❌ Could not start scanner: ' + (err.message || err), true);
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  }
+
+  async function stopScanner() {
+    if (!html5QrCode) {
+      setStatus('Scanner is not running.');
+      return;
+    }
+    try {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+      html5QrCode = null;
+      setStatus('⏸ Scanner stopped.');
+    } catch (err) {
+      console.warn('stop error', err);
+      setStatus('⚠️ Error stopping scanner.', true);
+    } finally {
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  }
+
+  cameraSelect.addEventListener('change', () => {
+    // if running, restart with new camera
+    if (html5QrCode) {
+      stopScanner().then(() => startScanner());
+    } else {
+      currentCameraId = cameraSelect.value;
+    }
+  });
+
+  startBtn.addEventListener('click', startScanner);
+  stopBtn.addEventListener('click', stopScanner);
+
+  // init
+  window.addEventListener('DOMContentLoaded', () => {
+    if (typeof Html5Qrcode === 'undefined') {
+      setStatus('❌ html5-qrcode library not loaded. Check script tag.', true);
+      return;
+    }
+    listCameras();
+  });
+</script>
+</body>
+</html>
