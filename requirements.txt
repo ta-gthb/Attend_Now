@@ -1,6 +1,6 @@
 Flask
-face_recognition
 gunicorn
-numpy
-pillow
-opencv-python
+Pillow
+qrcode[pil]
+webauthn
+Werkzeug
