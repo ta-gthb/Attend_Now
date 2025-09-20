@@ -1,5 +1,6 @@
 import json
 from flask import Flask, flash, render_template, request, redirect, session, jsonify, make_response, url_for, send_file
+import click
 import os # This is a standard library import, not from db_utils
 import base64
 from io import BytesIO
@@ -18,10 +19,14 @@ import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
 from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+
+load_dotenv() # Load environment variables from .env file
 
 app = Flask(__name__)
-app.secret_key = "your_super_secret_key"
-
+# Load the secret key from an environment variable for security
+# The second argument is a default key for development if the .env file is not present.
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "a-default-secret-for-dev")
 
 # ---------------- Utility Functions ---------------- #
 def haversine(lat1, lon1, lat2, lon2):
@@ -923,7 +928,13 @@ def delete_session(sid):
         conn.execute("DELETE FROM sessions WHERE id = ? AND teacher_id = ?", (sid, session['teacher_id']))
     return redirect('/teacher/dashboard')
 
+@app.cli.command("init-db")
+def init_db_command():
+    """Clear existing data and create new tables."""
+    init_db()
+    click.echo("Initialized the database.")
+
 if __name__ == '__main__':
-    if not os.path.exists("database.db"):
-        init_db()
-    app.run(host='0.0.0.0', port=5000, ssl_context='adhoc')
+    # The 'adhoc' SSL context is for development only.
+    # Production servers like Gunicorn handle SSL.
+    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context='adhoc')

@@ -4,3 +4,4 @@ Pillow
 qrcode[pil]
 webauthn
 Werkzeug
+python-dotenv
