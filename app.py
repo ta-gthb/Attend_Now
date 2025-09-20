@@ -226,21 +226,13 @@ def student_register_options():
     if not student_id or not name:
         return "Student ID and Name are required.", 400
 
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT credential_id FROM students WHERE student_id = ?", (student_id,))
-        existing_creds = c.fetchall()
-
-    exclude_credentials = []
-    if existing_creds:
-        exclude_credentials = [{"id": cred["credential_id"], "type": "public-key"} for cred in existing_creds if cred["credential_id"]]
-
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
         user_id=student_id.encode("utf-8"),
         user_name=name,
-        exclude_credentials=exclude_credentials,
+        # By removing exclude_credentials, we allow a user to register a new device,
+        # which will overwrite their old credential upon form submission.
     )
     session["webauthn_challenge"] = options.challenge
     return options_to_json(options)

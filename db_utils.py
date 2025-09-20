@@ -1,5 +1,6 @@
 import sqlite3
 from werkzeug.security import generate_password_hash
+import os
 
 DB_PATH = "database.db"
 
@@ -175,7 +176,9 @@ def init_db():
         # Default Admin
         c.execute("SELECT * FROM admins WHERE username = ?", ("admin",))
         if not c.fetchone():
-            hashed_password = generate_password_hash("admin123")
+            # Load default admin password from environment variable for security
+            default_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin123")
+            hashed_password = generate_password_hash(default_password)
             c.execute("INSERT INTO admins (username, password) VALUES (?, ?)", ("admin", hashed_password))
 
         conn.commit()

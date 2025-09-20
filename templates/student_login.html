@@ -14,7 +14,7 @@ body { background:#f8f9fa; }
 <body>
 <div class="card shadow-sm">
 <h3 class="mb-3">🔑 Student Login</h3>
-<p class="muted">Login using your registered security key / platform authenticator (touch / biometrics / device PIN). If unavailable, use your PIN fallback.</p>
+<p class="muted">Login using your registered security key or platform authenticator (e.g., fingerprint, face recognition, or device PIN).</p>
 <form id="loginForm" method="POST" action="/student/login/verify">
 <input type="hidden" name="webauthn_assertion" id="webauthn_assertion">
 
@@ -63,7 +63,7 @@ body { background:#f8f9fa; }
         statusEl.textContent = '✅ WebAuthn is available on this browser.';
         getAssertionBtn.disabled = false;
     } else {
-        statusEl.textContent = '❌ WebAuthn not available. Use PIN fallback.';
+        statusEl.textContent = '❌ WebAuthn is not supported on this browser. Please try a different browser.';
         getAssertionBtn.disabled = true;
     }
 
