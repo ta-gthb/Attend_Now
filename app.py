@@ -83,6 +83,7 @@ def student_login_verify():
     if auth_response_json:
         try:
             auth_response = AuthenticationCredential.parse_raw(auth_response_json)
+            auth_response = AuthenticationCredential.model_validate_json(auth_response_json)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
