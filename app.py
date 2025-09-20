@@ -43,11 +43,11 @@ def parse_webauthn_credential(model, json_data):
     handling both new (model_validate_json) and old (parse_raw) methods
     to prevent version-related crashes.
     """
-    if hasattr(model, 'model_validate_json'):
-        # For webauthn >= 2.0.0
+    try:
+        # Try the modern method first (for webauthn >= 2.0.0)
         return model.model_validate_json(json_data)
-    else:
-        # For older versions of webauthn
+    except AttributeError:
+        # If that fails, fall back to the old method
         return model.parse_raw(json_data)
 
 def db_query(query, params=(), fetchone=False, commit=False):
