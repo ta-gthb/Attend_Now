@@ -82,7 +82,7 @@ def student_login_verify():
     # --- WebAuthn Verification ---
     if auth_response_json:
         try:
-            auth_response = AuthenticationCredential.parse_raw(auth_response_json)
+            auth_response = AuthenticationCredential.model_validate_json(auth_response_json)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
@@ -99,13 +99,10 @@ def student_login_verify():
             return f"Login verification failed: {e}", 400
 
     # --- PIN Verification (Fallback) ---
-    elif request.form.get("fallback_pin"):
-        if request.form.get("fallback_pin") != student["pin"]:
-            return "Invalid PIN.", 401
     else:
-        return "No authentication method provided.", 400
+        return "WebAuthn assertion is required.", 400
 
-    # If verification is successful, set session
+    # If WebAuthn verification is successful, set session
     session["student_id"] = student["id"]
     session["student_name"] = student["name"]
 
@@ -182,7 +179,6 @@ def student_register():
             roll_no = request.form['roll_no']
             email = request.form['email']
             year = request.form['year']
-            pin = request.form.get('fallback_pin')
             attestation_json = request.form.get('webauthn_attestation')
 
             with get_connection() as conn:
@@ -191,26 +187,21 @@ def student_register():
                 if c.fetchone():
                     return "⚠️ Student with this ID or Roll Number already exists."
 
-                if attestation_json:
-                    attestation = RegistrationCredential.parse_raw(attestation_json)
-                    verification = verify_registration_response(
-                        credential=attestation,
-                        expected_challenge=session["webauthn_challenge"],
-                        expected_rp_id=request.host.split(':')[0],
-                        expected_origin=request.origin,
-                        require_user_verification=True,
-                    )
-                    c.execute("""
-                        INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count, pin)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count, pin))
-                elif pin:
-                    c.execute("""
-                        INSERT INTO students (name, department, student_id, roll_no, email, year, pin)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (name, dept, student_id, roll_no, email, year, pin))
-                else:
-                    return "Either WebAuthn or a PIN is required.", 400
+                if not attestation_json:
+                    return "A WebAuthn device registration is required.", 400
+
+                attestation = RegistrationCredential.model_validate_json(attestation_json)
+                verification = verify_registration_response(
+                    credential=attestation,
+                    expected_challenge=session["webauthn_challenge"],
+                    expected_rp_id=request.host.split(':')[0],
+                    expected_origin=request.origin,
+                    require_user_verification=True,
+                )
+                c.execute("""
+                    INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count))
                 conn.commit()
             return redirect(url_for('student_login'))
 

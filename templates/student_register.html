@@ -73,22 +73,13 @@ set up a PIN as a fallback.
 
 <!-- Hidden fields for WebAuthn attestation or PIN fallback -->
 <input type="hidden" name="webauthn_attestation" id="webauthn_attestation">
-<input type="hidden" name="fallback_pin" id="fallback_pin">
 
 
 <div class="col-12">
 <div id="webauthn-status" class="mb-2 small-muted">Checking WebAuthn availability...</div>
 <div class="d-flex gap-2">
 <button id="createCredentialBtn" type="button" class="btn btn-primary">🔐 Register Device</button>
-<button id="pinFallbackToggle" type="button" class="btn btn-outline-secondary">Use PIN instead</button>
 </div>
-</div>
-
-
-<div id="pinArea" class="col-12" style="display:none;">
-    <label class="form-label">Choose a 4–8 digit PIN (fallback)</label>
-    <input type="password" id="pinInput" pattern="\d{4,8}" class="form-control" style="max-width: 200px;" />
-    <div class="form-text">This will be used if you can't use your device.</div>
 </div>
 
 <div class="col-12 mt-3">
@@ -119,45 +110,24 @@ set up a PIN as a fallback.
     const studentIdInput = document.querySelector('input[name="student_id"]');
     const nameInput = document.querySelector('input[name="name"]');
     const createCredentialBtn = document.getElementById('createCredentialBtn');
-    const pinFallbackToggle = document.getElementById('pinFallbackToggle');
-    const pinArea = document.getElementById('pinArea');
-    const pinInput = document.getElementById('pinInput');
     const registerForm = document.getElementById('registerForm');
     const attestationInput = document.getElementById('webauthn_attestation');
-    const fallbackPinInput = document.getElementById('fallback_pin');
 
     // Check for WebAuthn availability
     if (window.PublicKeyCredential) {
         statusEl.textContent = '✅ WebAuthn is available on this browser.';
         createCredentialBtn.disabled = false;
     } else {
-        statusEl.textContent = '❌ WebAuthn not available. You can use a PIN instead.';
+        statusEl.textContent = '❌ WebAuthn is not available on this browser. You cannot register.';
         createCredentialBtn.disabled = true;
     }
 
-    // Handle PIN fallback toggle
-    pinFallbackToggle.addEventListener('click', () => {
-        pinArea.style.display = 'block';
-        createCredentialBtn.style.display = 'none'; // Hide WebAuthn button
-        pinFallbackToggle.style.display = 'none'; // Hide this toggle
-    });
-
     // Final form submission logic
     registerForm.addEventListener('submit', (e) => {
-        // If PIN is being used, populate the hidden field
-        if (pinArea.style.display === 'block') {
-            if (pinInput.value && (pinInput.value.length < 4 || pinInput.value.length > 8)) {
-                e.preventDefault();
-                alert('PIN must be between 4 and 8 digits.');
-                return;
-            }
-            fallbackPinInput.value = pinInput.value;
-        }
-
-        // Ensure either WebAuthn or PIN is provided
-        if (!attestationInput.value && !fallbackPinInput.value) {
+        // Ensure WebAuthn is provided
+        if (!attestationInput.value) {
             e.preventDefault();
-            alert('Please either register a device with WebAuthn or set a PIN.');
+            alert('Please register a device with WebAuthn before completing the registration.');
         }
     });
 

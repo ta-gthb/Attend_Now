@@ -80,8 +80,8 @@ def init_db():
                 credential_id BLOB UNIQUE,
                 public_key BLOB,
                 sign_count INTEGER,
-                pin TEXT -- Hashed PIN for fallback
-            )
+                UNIQUE(roll_no, department)
+            ) -- Removed PIN column
         """)
 
         # Departments Table

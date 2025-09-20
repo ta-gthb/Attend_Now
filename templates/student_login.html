@@ -15,12 +15,8 @@ body { background:#f8f9fa; }
 <div class="card shadow-sm">
 <h3 class="mb-3">🔑 Student Login</h3>
 <p class="muted">Login using your registered security key / platform authenticator (touch / biometrics / device PIN). If unavailable, use your PIN fallback.</p>
-
-
 <form id="loginForm" method="POST" action="/student/login/verify">
 <input type="hidden" name="webauthn_assertion" id="webauthn_assertion">
-<!-- PIN fallback -->
-<input type="hidden" name="fallback_pin" id="fallback_pin">
 
 
 <div class="mb-3">
@@ -33,21 +29,9 @@ body { background:#f8f9fa; }
 
 
 <div class="d-flex gap-2 mb-3">
-<button id="getAssertionBtn" type="button" class="btn btn-primary">Use WebAuthn</button>
-<button id="pinFallbackBtn" type="button" class="btn btn-outline-secondary">Use PIN fallback</button>
+<button id="getAssertionBtn" type="button" class="btn btn-primary w-100">Login with Device</button>
 </div>
 
-
-<div id="pinArea" style="display:none;" class="mb-3">
-<label class="form-label">Enter your registration PIN</label>
-<input id="pinInput" type="password" pattern="\d{4,8}" class="form-control" />
-<div class="form-text">Enter the 4–8 digit PIN you registered earlier.</div>
-</div>
-
-
-<div class="d-grid">
-    <!-- The final submit button is now dynamically handled by JS -->
-</div>
 </form>
 </div>
 
@@ -71,12 +55,8 @@ body { background:#f8f9fa; }
     const statusEl = document.getElementById('webauthn-status');
     const studentIdInput = document.querySelector('input[name="student_id"]');
     const getAssertionBtn = document.getElementById('getAssertionBtn');
-    const pinFallbackBtn = document.getElementById('pinFallbackBtn');
-    const pinArea = document.getElementById('pinArea');
-    const pinInput = document.getElementById('pinInput');
     const loginForm = document.getElementById('loginForm');
     const assertionInput = document.getElementById('webauthn_assertion');
-    const fallbackPinInput = document.getElementById('fallback_pin');
 
     // Check for WebAuthn availability
     if (window.PublicKeyCredential) {
@@ -86,30 +66,6 @@ body { background:#f8f9fa; }
         statusEl.textContent = '❌ WebAuthn not available. Use PIN fallback.';
         getAssertionBtn.disabled = true;
     }
-
-    // Handle PIN fallback
-    pinFallbackBtn.addEventListener('click', () => {
-        pinArea.style.display = 'block';
-        getAssertionBtn.style.display = 'none'; // Hide WebAuthn button
-        pinFallbackBtn.textContent = 'Submit PIN';
-        pinFallbackBtn.classList.remove('btn-outline-secondary');
-        pinFallbackBtn.classList.add('btn-success');
-
-        // Change button type to submit the form
-        pinFallbackBtn.type = 'submit';
-    });
-
-    loginForm.addEventListener('submit', (e) => {
-        // If PIN is being used, populate the hidden field
-        if (pinArea.style.display === 'block') {
-            if (!pinInput.value) {
-                e.preventDefault();
-                alert('Please enter your PIN.');
-                return;
-            }
-            fallbackPinInput.value = pinInput.value;
-        }
-    });
 
     // Handle WebAuthn assertion
     getAssertionBtn.addEventListener('click', async () => {
