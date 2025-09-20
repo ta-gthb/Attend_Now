@@ -204,9 +204,14 @@ def student_register():
                 """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count))
                 conn.commit()
             return redirect(url_for('student_login'))
-
+        
+        except sqlite3.IntegrityError:
+            # This catches UNIQUE constraint violations (student_id, email, etc.)
+            flash("A student with this ID, Roll Number, or Email already exists.", "error")
+            return redirect(url_for('student_register'))
         except Exception as e:
-            return f"🚫 Error during registration: {str(e)}"
+            flash(f"An unexpected error occurred during registration: {e}", "error")
+            return redirect(url_for('student_register'))
 
     # For GET: Render registration page
     departments = get_all_departments()
