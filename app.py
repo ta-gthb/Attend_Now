@@ -1,6 +1,5 @@
 import json
 from flask import Flask, flash, render_template, request, redirect, session, jsonify, make_response, url_for, send_file
-import os
 import os # This is a standard library import, not from db_utils
 import base64
 from io import BytesIO
