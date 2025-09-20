@@ -181,30 +181,42 @@ def student_register():
             year = request.form['year']
             attestation_json = request.form.get('webauthn_attestation')
 
+            if not attestation_json:
+                flash("A WebAuthn device registration is required before completing.", "error")
+                return redirect(url_for('student_register'))
+
+            attestation = RegistrationCredential.model_validate_json(attestation_json)
+            verification = verify_registration_response(
+                credential=attestation,
+                expected_challenge=session["webauthn_challenge"],
+                expected_rp_id=request.host.split(':')[0],
+                expected_origin=request.origin,
+                require_user_verification=True,
+            )
+
             with get_connection() as conn:
                 c = conn.cursor()
-                c.execute("SELECT id FROM students WHERE student_id=? OR roll_no=?", (student_id, roll_no))
-                if c.fetchone():
-                    return "⚠️ Student with this ID or Roll Number already exists."
+                # Check if a student with this ID already exists
+                c.execute("SELECT id FROM students WHERE student_id=?", (student_id,))
+                existing_student = c.fetchone()
 
-                if not attestation_json:
-                    return "A WebAuthn device registration is required.", 400
-
-                attestation = RegistrationCredential.model_validate_json(attestation_json)
-                verification = verify_registration_response(
-                    credential=attestation,
-                    expected_challenge=session["webauthn_challenge"],
-                    expected_rp_id=request.host.split(':')[0],
-                    expected_origin=request.origin,
-                    require_user_verification=True,
-                )
-                c.execute("""
-                    INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count))
+                if existing_student:
+                    # Student exists, so UPDATE their record with the new WebAuthn credential
+                    c.execute("""
+                        UPDATE students 
+                        SET name=?, department=?, roll_no=?, email=?, year=?, credential_id=?, public_key=?, sign_count=?
+                        WHERE id=?
+                    """, (name, dept, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count, existing_student['id']))
+                    flash("Your student record and security key have been updated successfully.", "success")
+                else:
+                    # Student is new, so INSERT a new record
+                    c.execute("""
+                        INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count))
+                    flash("Registration successful! You can now log in.", "success")
                 conn.commit()
             return redirect(url_for('student_login'))
-        
         except sqlite3.IntegrityError:
             # This catches UNIQUE constraint violations (student_id, email, etc.)
             flash("A student with this ID, Roll Number, or Email already exists.", "error")
@@ -216,6 +228,39 @@ def student_register():
     # For GET: Render registration page
     departments = get_all_departments()
     return render_template("student_register.html", departments=departments)
+
+@app.route("/student/register/options", methods=["POST"])
+def student_register_options():
+    student_id = request.form.get("student_id")
+    name = request.form.get("name")
+
+    if not student_id or not name:
+        return "Student ID and Name are required.", 400
+
+    options = generate_registration_options(
+        rp_id=request.host.split(':')[0],
+        rp_name="AttendNow",
+        user_id=student_id.encode("utf-8"),
+        user_name=name,
+        # By removing exclude_credentials, we allow a user to register a new device,
+        # which will overwrite their old credential upon form submission.
+    )
+    session["webauthn_challenge"] = options.challenge
+    return options_to_json(options)
+
+
+@app.route("/student/login/options", methods=["POST"])
+def student_login_options():
+    student_id = request.form.get("student_id")
+    if not student_id:
+        return "Student ID is required.", 400
+
+    options = generate_authentication_options(
+        rp_id=request.host.split(':')[0],
+        user_verification="required",
+    )
+    session["webauthn_challenge"] = options.challenge
+    return options_to_json(options)
 
 
 @app.route("/student/register/options", methods=["POST"])

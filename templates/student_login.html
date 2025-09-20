@@ -14,6 +14,15 @@ body { background:#f8f9fa; }
 <body>
 <div class="card shadow-sm">
 <h3 class="mb-3">🔑 Student Login</h3>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
 <p class="muted">Login using your registered security key or platform authenticator (e.g., fingerprint, face recognition, or device PIN).</p>
 <form id="loginForm" method="POST" action="/student/login/verify">
 <input type="hidden" name="webauthn_assertion" id="webauthn_assertion">
