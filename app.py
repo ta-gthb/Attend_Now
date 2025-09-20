@@ -190,7 +190,7 @@ def student_register():
                 if not attestation_json:
                     return "A WebAuthn device registration is required.", 400
 
-                attestation = RegistrationCredential.model_validate_json(attestation_json) # This line was correct, the error was elsewhere.
+                attestation = RegistrationCredential.model_validate_json(attestation_json)
                 verification = verify_registration_response(
                     credential=attestation,
                     expected_challenge=session["webauthn_challenge"],
