@@ -29,6 +29,20 @@ def delete_department(dept_id):
         c.execute("DELETE FROM departments WHERE id = ?", (dept_id,))
         conn.commit()
 
+# ------------------ Student Management ------------------ #
+
+def get_student_by_student_id(student_id):
+    """Fetches a single student record by their student_id."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM students WHERE student_id = ?", (student_id,))
+        return c.fetchone()
+
+def update_student_sign_count(student_pk_id, new_sign_count):
+    """Updates the WebAuthn sign count for a student."""
+    with get_connection() as conn:
+        conn.execute("UPDATE students SET sign_count = ? WHERE id = ?", (new_sign_count, student_pk_id))
+
 # ------------------ Teacher-Subject & Department Management ------------------ #
 
 def get_teacher_subjects(teacher_id):

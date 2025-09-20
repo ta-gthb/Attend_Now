@@ -37,6 +37,18 @@ def haversine(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
 
+def parse_webauthn_credential(model, json_data):
+    """
+    Parses a JSON string into a WebAuthn model object,
+    handling both new (model_validate_json) and old (parse_raw) methods
+    to prevent version-related crashes.
+    """
+    if hasattr(model, 'model_validate_json'):
+        # For webauthn >= 2.0.0
+        return model.model_validate_json(json_data)
+    else:
+        # For older versions of webauthn
+        return model.parse_raw(json_data)
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
@@ -71,18 +83,14 @@ def student_login_verify():
     if not student_id_val:
         return "Student ID is required.", 400
 
-    with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM students WHERE student_id = ?", (student_id_val,))
-        student = c.fetchone()
-
+    student = get_student_by_student_id(student_id_val)
     if not student:
         return "Student not found.", 404
 
     # --- WebAuthn Verification ---
     if auth_response_json:
         try:
-            auth_response = AuthenticationCredential.model_validate_json(auth_response_json)
+            auth_response = parse_webauthn_credential(AuthenticationCredential, auth_response_json)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
@@ -93,8 +101,7 @@ def student_login_verify():
                 require_user_verification=True,
             )
             # Update sign count
-            with get_connection() as conn:
-                conn.execute("UPDATE students SET sign_count = ? WHERE id = ?", (verification.new_sign_count, student["id"]))
+            update_student_sign_count(student["id"], verification.new_sign_count)
         except Exception as e: # More specific error handling is better in production
             return f"Login verification failed: {e}", 400
 
@@ -185,7 +192,7 @@ def student_register():
                 flash("A WebAuthn device registration is required before completing.", "error")
                 return redirect(url_for('student_register'))
 
-            attestation = RegistrationCredential.model_validate_json(attestation_json)
+            attestation = parse_webauthn_credential(RegistrationCredential, attestation_json)
             verification = verify_registration_response(
                 credential=attestation,
                 expected_challenge=session["webauthn_challenge"],
