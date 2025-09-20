@@ -263,40 +263,6 @@ def student_login_options():
     return options_to_json(options)
 
 
-@app.route("/student/register/options", methods=["POST"])
-def student_register_options():
-    student_id = request.form.get("student_id")
-    name = request.form.get("name")
-
-    if not student_id or not name:
-        return "Student ID and Name are required.", 400
-
-    options = generate_registration_options(
-        rp_id=request.host.split(':')[0],
-        rp_name="AttendNow",
-        user_id=student_id.encode("utf-8"),
-        user_name=name,
-        # By removing exclude_credentials, we allow a user to register a new device,
-        # which will overwrite their old credential upon form submission.
-    )
-    session["webauthn_challenge"] = options.challenge
-    return options_to_json(options)
-
-
-@app.route("/student/login/options", methods=["POST"])
-def student_login_options():
-    student_id = request.form.get("student_id")
-    if not student_id:
-        return "Student ID is required.", 400
-
-    options = generate_authentication_options(
-        rp_id=request.host.split(':')[0],
-        user_verification="required",
-    )
-    session["webauthn_challenge"] = options.challenge
-    return options_to_json(options)
-
-
 @app.route('/teacher/generate-qr/<int:session_id>')
 def generate_qr(session_id):
     # Check if teacher owns this session
