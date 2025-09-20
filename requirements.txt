@@ -2,6 +2,6 @@ Flask
 gunicorn
 Pillow
 qrcode[pil]
-webauthn
+webauthn>=2.0.0
 Werkzeug
 python-dotenv
