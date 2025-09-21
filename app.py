@@ -68,11 +68,14 @@ def parse_webauthn_credential(model, json_data):
         # This logic is now made safe with .get() to prevent KeyErrors.
         response_data = data_snake_case.get("response", {})
 
-        # Decode all necessary fields from strings to bytes, checking for existence first.
+        # The `id` should be a base64url string, and `raw_id` should be the bytes it decodes to.
+        # We will derive both from the `raw_id` sent by the frontend to ensure they are equivalent.
         if data_snake_case.get("raw_id"):
-            raw_id_bytes = base64url_to_bytes(data_snake_case["raw_id"])
+            # The frontend sends raw_id as a base64url string.
+            raw_id_str = data_snake_case["raw_id"]
+            raw_id_bytes = base64url_to_bytes(raw_id_str)
+            data_snake_case["id"] = raw_id_str        # Set `id` to the string
             data_snake_case["raw_id"] = raw_id_bytes
-            data_snake_case["id"] = raw_id_bytes  # Ensure id and raw_id are equivalent
         if response_data.get("client_data_json"):
             response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
         if response_data.get("attestation_object"):
