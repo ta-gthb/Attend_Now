@@ -19,6 +19,7 @@ import qrcode
 import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
+from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -83,7 +84,7 @@ def parse_webauthn_credential(model, json_data):
             attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
         )
 
-        return webauthn_structs.RegistrationCredential(**data_snake_case)
+        return RegistrationCredential(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
@@ -127,7 +128,7 @@ def student_login_verify():
     # --- WebAuthn Verification ---
     if auth_response_json:
         try:
-            auth_response = parse_webauthn_credential(webauthn_structs.AuthenticationCredential, auth_response_json)
+            auth_response = parse_webauthn_credential(AuthenticationCredential, auth_response_json)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
@@ -229,7 +230,7 @@ def student_register():
                 flash("A WebAuthn device registration is required before completing.", "error")
                 return redirect(url_for('student_register'))
 
-            attestation = parse_webauthn_credential(webauthn_structs.RegistrationCredential, attestation_json)
+            attestation = parse_webauthn_credential(RegistrationCredential, attestation_json)
             verification = verify_registration_response(
                 credential=attestation,
                 expected_challenge=session["webauthn_challenge"],
@@ -286,7 +287,7 @@ def student_register_options():
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
-        user_id=bytes_to_base64url(student_id.encode("utf-8")),
+        user_id=student_id.encode("utf-8"),
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
