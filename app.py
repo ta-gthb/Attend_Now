@@ -38,19 +38,30 @@ def haversine(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
 
+def _to_snake_case(d):
+    """Recursively convert dictionary keys from camelCase to snake_case."""
+    if isinstance(d, list):
+        return [_to_snake_case(i) for i in d]
+    if not isinstance(d, dict):
+        return d
+    return {
+        re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower(): _to_snake_case(v)
+        for k, v in d.items()
+    }
+
 def parse_webauthn_credential(model, json_data):
     """
     Parses a JSON string into a WebAuthn model object,
-    handling both new (model_validate_json) and old (parse_raw) methods
-    to prevent version-related crashes.
+    handling different library versions and naming conventions.
     """
     # This is the most robust method. Instead of relying on parsing methods
     # that change between library versions, we parse the JSON ourselves and
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
     try:
-        data = json.loads(json_data)
-        return model(**data)
+        data_camel_case = json.loads(json_data)
+        data_snake_case = _to_snake_case(data_camel_case)
+        return model(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
