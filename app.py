@@ -266,6 +266,9 @@ def student_register():
             # This catches UNIQUE constraint violations (student_id, email, etc.)
             flash("A student with this ID, Roll Number, or Email already exists.", "error")
             return redirect(url_for('student_register'))
+        except UnicodeDecodeError:
+            flash("There was an error processing the registration data. Please ensure you are not uploading a file and try again.", "error")
+            return redirect(url_for('student_register'))
         except Exception as e:
             flash(f"An unexpected error occurred during registration: {e}", "error")
             return redirect(url_for('student_register'))
