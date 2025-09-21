@@ -46,10 +46,10 @@ def parse_webauthn_credential(model, json_data):
     """
     # Explicitly check which method exists on the model. This is more robust
     # than a try/except block which can catch unrelated AttributeErrors.
-    if not hasattr(model, 'parse_raw'):
+    if hasattr(model, 'model_validate_json'):
         # Use the modern method for webauthn >= 2.0.0 (pydantic v2)
         return model.model_validate_json(data=json_data)
-    else: # hasattr(model, 'parse_raw')
+    else:
         # Fall back to the old method for older versions of webauthn
         return model.parse_raw(b=json_data)
 
