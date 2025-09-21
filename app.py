@@ -44,20 +44,15 @@ def parse_webauthn_credential(model, json_data):
     handling both new (model_validate_json) and old (parse_raw) methods
     to prevent version-related crashes.
     """
-    # Check for the modern method first (Pydantic v2, webauthn >= 2.0.0)
-    if hasattr(model, "model_validate_json"):
-        return model.model_validate_json(data=json_data)
-    # Fall back to the old method (Pydantic v1)
-    elif hasattr(model, "parse_raw"):
-        return model.parse_raw(b=json_data)
-    # If neither method exists, something is wrong with the library install.
-    # Raise a very detailed error for debugging on the remote server.
-    import inspect
-    model_details = (
-        f"Model: {model.__name__}, Module: {model.__module__}, "
-        f"Bases: {[b.__name__ for b in model.__bases__]}, Attributes: {dir(model)}"
-    )
-    raise AttributeError(f"WebAuthn model is malformed. Details: {model_details}")
+    # This is the most robust method. Instead of relying on parsing methods
+    # that change between library versions, we parse the JSON ourselves and
+    # instantiate the model directly using keyword arguments. This works for
+    # both modern Pydantic models and older dataclass-based models.
+    try:
+        data = json.loads(json_data)
+        return model(**data)
+    except Exception as e:
+        raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
