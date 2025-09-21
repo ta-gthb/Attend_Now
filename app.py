@@ -69,10 +69,10 @@ def parse_webauthn_credential(model, json_data):
         response_data = data_snake_case.get("response", {})
 
         # Decode all necessary fields from strings to bytes, checking for existence first.
-        if data_snake_case.get("id"):
-            data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
         if data_snake_case.get("raw_id"):
-            data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
+            raw_id_bytes = base64url_to_bytes(data_snake_case["raw_id"])
+            data_snake_case["raw_id"] = raw_id_bytes
+            data_snake_case["id"] = raw_id_bytes  # Ensure id and raw_id are equivalent
         if response_data.get("client_data_json"):
             response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
         if response_data.get("attestation_object"):
