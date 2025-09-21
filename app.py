@@ -58,25 +58,27 @@ def parse_webauthn_credential(model, json_data):
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
     from webauthn.helpers import base64url_to_bytes
+    from webauthn.helpers.structs import RegistrationCredentialResponse
 
     try:
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # Prepare the dictionary with correct types (bytes) and keys (snake_case)
-        # before passing it to the model constructor. This is the most version-agnostic
-        # and robust approach.
-        response_data = data_snake_case.get("response", {})
+        # To ensure maximum compatibility, we will manually construct the nested
+        # response object before passing everything to the main model constructor.
+        response_dict = data_snake_case.get("response", {})
 
         if data_snake_case.get("raw_id"):
             raw_id_str = data_snake_case["raw_id"]
             raw_id_bytes = base64url_to_bytes(raw_id_str)
             data_snake_case["id"] = raw_id_str
             data_snake_case["raw_id"] = raw_id_bytes
-        if response_data.get("client_data_json"):
-            response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
-        if response_data.get("attestation_object"):
-            response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
+
+        # Manually create the nested response object with decoded values.
+        data_snake_case["response"] = RegistrationCredentialResponse(
+            client_data_json=base64url_to_bytes(response_dict["client_data_json"]),
+            attestation_object=base64url_to_bytes(response_dict["attestation_object"]),
+        )
 
         return model(**data_snake_case)
     except Exception as e:
