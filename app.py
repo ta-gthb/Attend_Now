@@ -236,7 +236,6 @@ def student_register():
                 expected_challenge=session["webauthn_challenge"],
                 expected_rp_id=request.host.split(':')[0],
                 expected_origin=request.origin,
-                user_id=session.get("webauthn_user_id"), # Use the user_id from the session
                 require_user_verification=True,
             )
 
@@ -283,21 +282,21 @@ def student_register_options():
     if not student_id or not name:
         return "Student ID and Name are required.", 400
 
-    # This is the definitive fix. We generate a secure, random user ID (user handle)
-    # for WebAuthn, which is the standard practice. This avoids all encoding/decoding
-    # issues with using the student_id directly.
-    webauthn_user_id = os.urandom(16)
+    # This is the definitive fix for the ValueError/UnicodeDecodeError cycle.
+    # We must pass bytes, but the bytes must also be UTF-8 safe to avoid
+    # errors during verification. Encoding the user ID to hex, and then
+    # encoding that hex string to bytes, satisfies both requirements.
+    user_id_bytes = student_id.encode("utf-8").hex().encode("ascii")
 
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
-        user_id=webauthn_user_id,
+        user_id=user_id_bytes,
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
     )
     session["webauthn_challenge"] = options.challenge
-    session["webauthn_user_id"] = webauthn_user_id # Store the random user ID in the session
     return options_to_json(options)
 
 
