@@ -17,8 +17,8 @@ from db_utils import (init_db, get_connection, get_all_departments, add_departme
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
-from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response, base64url_to_bytes, bytes_to_base64url
-from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
+from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, struct as webauthn_structs
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -57,8 +57,7 @@ def parse_webauthn_credential(model, json_data):
     # that change between library versions, we parse the JSON ourselves and
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
-    from webauthn.helpers import base64url_to_bytes
-
+    
     # Create a simple, version-agnostic object to hold response data.
     # This avoids both ImportErrors on old webauthn versions and
     # AttributeErrors from the verification function expecting an object.
@@ -84,7 +83,7 @@ def parse_webauthn_credential(model, json_data):
             attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
         )
 
-        return model(**data_snake_case)
+        return webauthn_structs.RegistrationCredential(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
@@ -128,7 +127,7 @@ def student_login_verify():
     # --- WebAuthn Verification ---
     if auth_response_json:
         try:
-            auth_response = parse_webauthn_credential(AuthenticationCredential, auth_response_json)
+            auth_response = parse_webauthn_credential(webauthn_structs.AuthenticationCredential, auth_response_json)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
@@ -230,7 +229,7 @@ def student_register():
                 flash("A WebAuthn device registration is required before completing.", "error")
                 return redirect(url_for('student_register'))
 
-            attestation = parse_webauthn_credential(RegistrationCredential, attestation_json)
+            attestation = parse_webauthn_credential(webauthn_structs.RegistrationCredential, attestation_json)
             verification = verify_registration_response(
                 credential=attestation,
                 expected_challenge=session["webauthn_challenge"],
@@ -282,6 +281,8 @@ def student_register_options():
     if not student_id or not name:
         return "Student ID and Name are required.", 400
 
+    # To ensure consistency and avoid encoding/decoding errors in the webauthn library,
+    # we will pass the user_id as a base64url-encoded string, which is a common practice.
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
