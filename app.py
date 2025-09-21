@@ -67,14 +67,13 @@ def parse_webauthn_credential(model, json_data):
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # The webauthn library expects certain fields to be bytes, but they arrive
-        # as base64url-encoded strings in the JSON. We must decode them *before*
-        # passing them to the model constructor.
-        # This logic must be self-contained and not rely on the state of the
-        # object after partial instantiation.
+        # The webauthn library expects certain fields to be bytes, but they arrive as
+        # base64url-encoded strings. We must decode them *before* passing them to the
+        # model constructor. This logic must be self-contained and not rely on the
+        # state of the object after any partial instantiation.
         response_data = data_snake_case.get("response", {})
 
-        # Decode all necessary fields from strings to bytes
+        # Decode all necessary fields from strings to bytes, modifying the dictionary in place.
         data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
         data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
         response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
