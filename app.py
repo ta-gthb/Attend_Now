@@ -58,9 +58,22 @@ def parse_webauthn_credential(model, json_data):
     # that change between library versions, we parse the JSON ourselves and
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
+    from webauthn.helpers import base64url_to_bytes
+
     try:
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
+
+        # The webauthn library expects certain fields to be bytes, but they
+        # arrive as base64url-encoded strings in the JSON. We must decode them.
+        if "id" in data_snake_case:
+            data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
+        if "raw_id" in data_snake_case:
+            data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
+        if "response" in data_snake_case:
+            data_snake_case["response"]["client_data_json"] = base64url_to_bytes(data_snake_case["response"]["client_data_json"])
+            data_snake_case["response"]["attestation_object"] = base64url_to_bytes(data_snake_case["response"]["attestation_object"])
+
         return model(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
