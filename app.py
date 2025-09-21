@@ -288,11 +288,10 @@ def student_register_options():
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
         # This is the definitive fix for the ValueError/UnicodeDecodeError cycle.
-        # 1. Encode the student_id to bytes.
-        # 2. Encode those bytes to a Base64 string, which is UTF-8 safe.
-        # 3. Encode the resulting Base64 string back to bytes to satisfy the library's type requirement.
-        user_id=student_id,
-        user_id_encoder=lambda s: s.encode("utf-8"),
+        # We must pass bytes, but the bytes must also be UTF-8 safe to avoid
+        # errors during verification. Encoding the user ID to hex, and then
+        # encoding that hex string to bytes, satisfies both requirements.
+        user_id=student_id.encode("utf-8").hex().encode("ascii"),
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
