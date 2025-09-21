@@ -291,7 +291,8 @@ def student_register_options():
         # 1. Encode the student_id to bytes.
         # 2. Encode those bytes to a Base64 string, which is UTF-8 safe.
         # 3. Encode the resulting Base64 string back to bytes to satisfy the library's type requirement.
-        user_id=base64.b64encode(student_id.encode("utf-8")),
+        user_id=student_id,
+        user_id_encoder=lambda s: s.encode("utf-8"),
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
