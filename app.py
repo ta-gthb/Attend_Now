@@ -291,7 +291,7 @@ def student_register_options():
         # We must pass bytes, but the bytes must also be UTF-8 safe to avoid
         # errors during verification. Encoding the user ID to hex, and then
         # encoding that hex string to bytes, satisfies both requirements.
-        user_id=student_id.encode("utf-8").hex().encode("ascii"),
+        user_id=bytes_to_base64url(student_id.encode("utf-8")).encode("utf-8"),
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
