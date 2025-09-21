@@ -11,8 +11,9 @@ from datetime import datetime, timedelta
 import time
 import csv
 import re
-from db_utils import (init_db, get_connection, get_all_departments,
-                      add_department, delete_department, promote_students)
+from db_utils import (init_db, get_connection, get_all_departments, add_department,
+                      delete_department, promote_students, get_student_by_student_id,
+                      update_student_sign_count)
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
@@ -43,12 +44,14 @@ def parse_webauthn_credential(model, json_data):
     handling both new (model_validate_json) and old (parse_raw) methods
     to prevent version-related crashes.
     """
-    try:
-        # Try the modern method first (for webauthn >= 2.0.0)
-        return model.model_validate_json(json_data)
-    except AttributeError:
-        # If that fails, fall back to the old method
-        return model.parse_raw(json_data)
+    # Explicitly check which method exists on the model. This is more robust
+    # than a try/except block which can catch unrelated AttributeErrors.
+    if not hasattr(model, 'parse_raw'):
+        # Use the modern method for webauthn >= 2.0.0 (pydantic v2)
+        return model.model_validate_json(data=json_data)
+    else: # hasattr(model, 'parse_raw')
+        # Fall back to the old method for older versions of webauthn
+        return model.parse_raw(b=json_data)
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
