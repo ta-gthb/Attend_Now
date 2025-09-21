@@ -285,7 +285,7 @@ def student_register_options():
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
-        user_id=student_id.encode("utf-8"),
+        user_id=student_id,
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
