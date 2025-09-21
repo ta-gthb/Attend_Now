@@ -41,11 +41,14 @@ def haversine(lat1, lon1, lat2, lon2):
 def _to_snake_case(d):
     """Recursively convert dictionary keys from camelCase to snake_case."""
     if isinstance(d, list):
-        return [_to_snake_case(i) for i in d]
+        return [_to_snake_case(i) for i in d] # Recurse into lists
     if not isinstance(d, dict):
         return d
+    # Recurse into dictionary values and convert keys
     return {
-        re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower(): _to_snake_case(v)
+        # Convert current key to snake_case
+        re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower():
+        _to_snake_case(v) # Recurse into the value
         for k, v in d.items()
     }
 
@@ -63,17 +66,6 @@ def parse_webauthn_credential(model, json_data):
     try:
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
-
-        # The webauthn library expects certain fields to be bytes, but they
-        # arrive as base64url-encoded strings in the JSON. We must decode them.
-        if "id" in data_snake_case:
-            data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
-        if "raw_id" in data_snake_case:
-            data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
-        if "response" in data_snake_case:
-            data_snake_case["response"]["client_data_json"] = base64url_to_bytes(data_snake_case["response"]["client_data_json"])
-            data_snake_case["response"]["attestation_object"] = base64url_to_bytes(data_snake_case["response"]["attestation_object"])
-
         return model(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
