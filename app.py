@@ -72,9 +72,15 @@ def parse_webauthn_credential(model, json_data):
         data_snake_case = _to_snake_case(data_camel_case)
 
         response_data = data_snake_case.get("response", {})
+        
+        # Helper to ensure value is a string before decoding from base64url
+        def _ensure_str(val):
+            if isinstance(val, bytes):
+                return val.decode('utf-8')
+            return val
 
         if data_snake_case.get("raw_id"):
-            raw_id_str = data_snake_case["raw_id"]
+            raw_id_str = _ensure_str(data_snake_case["raw_id"])
             raw_id_bytes = base64url_to_bytes(raw_id_str)
             data_snake_case["id"] = raw_id_str
             data_snake_case["raw_id"] = raw_id_bytes
@@ -82,6 +88,8 @@ def parse_webauthn_credential(model, json_data):
         data_snake_case["response"] = SimpleWebAuthnResponse(
             client_data_json=base64url_to_bytes(response_data.get("client_data_json")),
             attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
+            client_data_json=base64url_to_bytes(_ensure_str(response_data.get("client_data_json"))),
+            attestation_object=base64url_to_bytes(_ensure_str(response_data.get("attestation_object"))),
         )
 
         return RegistrationCredential(**data_snake_case)
