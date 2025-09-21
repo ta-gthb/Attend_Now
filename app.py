@@ -67,19 +67,19 @@ def parse_webauthn_credential(model, json_data):
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # The webauthn library expects certain fields to be bytes, but they
-        # arrive as base64url-encoded strings in the JSON. We must decode them
-        # after converting keys to snake_case.
-        if "id" in data_snake_case:
-            data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
-        if "raw_id" in data_snake_case:
-            data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
-        
-        # The response object also contains fields that need decoding.
-        if "response" in data_snake_case:
-            response = data_snake_case["response"]
-            response["client_data_json"] = base64url_to_bytes(response["client_data_json"])
-            response["attestation_object"] = base64url_to_bytes(response["attestation_object"])
+        # The webauthn library expects certain fields to be bytes, but they arrive
+        # as base64url-encoded strings in the JSON. We must decode them *before*
+        # passing them to the model constructor.
+        # This logic must be self-contained and not rely on the state of the
+        # object after partial instantiation.
+        response_data = data_snake_case.get("response", {})
+
+        # Decode all necessary fields from strings to bytes
+        data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
+        data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
+        response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
+        response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
+        data_snake_case["response"] = response_data
 
         return model(**data_snake_case)
     except Exception as e:
