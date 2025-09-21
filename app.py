@@ -51,7 +51,13 @@ def parse_webauthn_credential(model, json_data):
     elif hasattr(model, "parse_raw"):
         return model.parse_raw(b=json_data)
     # If neither method exists, something is wrong with the library install.
-    raise AttributeError(f"{model.__name__} has neither 'model_validate_json' nor 'parse_raw' methods.")
+    # Raise a very detailed error for debugging on the remote server.
+    import inspect
+    model_details = (
+        f"Model: {model.__name__}, Module: {model.__module__}, "
+        f"Bases: {[b.__name__ for b in model.__bases__]}, Attributes: {dir(model)}"
+    )
+    raise AttributeError(f"WebAuthn model is malformed. Details: {model_details}")
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
