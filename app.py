@@ -44,13 +44,12 @@ def parse_webauthn_credential(model, json_data):
     handling both new (model_validate_json) and old (parse_raw) methods
     to prevent version-related crashes.
     """
-    # Explicitly check which method exists on the model. This is more robust
-    # than a try/except block which can catch unrelated AttributeErrors.
-    if hasattr(model, 'model_validate_json'):
-        # Use the modern method for webauthn >= 2.0.0 (pydantic v2)
+    try:
+        # Attempt to use the modern method first (for webauthn >= 2.0.0 with Pydantic v2)
         return model.model_validate_json(data=json_data)
-    else:
-        # Fall back to the old method for older versions of webauthn
+    except AttributeError:
+        # If the modern method doesn't exist, fall back to the old one.
+        # The `b=` is important for older versions.
         return model.parse_raw(b=json_data)
 
 def db_query(query, params=(), fetchone=False, commit=False):
