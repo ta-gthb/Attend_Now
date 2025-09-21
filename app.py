@@ -58,26 +58,30 @@ def parse_webauthn_credential(model, json_data):
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
     from webauthn.helpers import base64url_to_bytes
-    from webauthn.helpers.structs import RegistrationCredentialResponse
+
+    # Create a simple, version-agnostic object to hold response data.
+    # This avoids both ImportErrors on old webauthn versions and
+    # AttributeErrors from the verification function expecting an object.
+    class SimpleWebAuthnResponse:
+        def __init__(self, client_data_json, attestation_object):
+            self.client_data_json = client_data_json
+            self.attestation_object = attestation_object
 
     try:
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # To ensure maximum compatibility, we will manually construct the nested
-        # response object before passing everything to the main model constructor.
-        response_dict = data_snake_case.get("response", {})
+        response_data = data_snake_case.get("response", {})
 
         if data_snake_case.get("raw_id"):
             raw_id_str = data_snake_case["raw_id"]
             raw_id_bytes = base64url_to_bytes(raw_id_str)
             data_snake_case["id"] = raw_id_str
             data_snake_case["raw_id"] = raw_id_bytes
-
-        # Manually create the nested response object with decoded values.
-        data_snake_case["response"] = RegistrationCredentialResponse(
-            client_data_json=base64url_to_bytes(response_dict["client_data_json"]),
-            attestation_object=base64url_to_bytes(response_dict["attestation_object"]),
+        
+        data_snake_case["response"] = SimpleWebAuthnResponse(
+            client_data_json=base64url_to_bytes(response_data.get("client_data_json")),
+            attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
         )
 
         return model(**data_snake_case)
