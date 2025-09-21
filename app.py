@@ -17,7 +17,7 @@ from db_utils import (init_db, get_connection, get_all_departments, add_departme
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
-from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
+from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response, base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
