@@ -40,17 +40,13 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def _to_snake_case(d):
     """Recursively convert dictionary keys from camelCase to snake_case."""
-    if isinstance(d, list):
-        return [_to_snake_case(i) for i in d] # Recurse into lists
-    if not isinstance(d, dict):
+    if isinstance(d, str):
         return d
-    # Recurse into dictionary values and convert keys
-    return {
-        # Convert current key to snake_case
-        re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower():
-        _to_snake_case(v) # Recurse into the value
-        for k, v in d.items()
-    }
+    if isinstance(d, list):
+        return [_to_snake_case(i) for i in d]
+    if isinstance(d, dict):
+        return {re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower(): _to_snake_case(v) for k, v in d.items()}
+    return d
 
 def parse_webauthn_credential(model, json_data):
     """
@@ -67,18 +63,20 @@ def parse_webauthn_credential(model, json_data):
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # The webauthn library expects certain fields to be bytes, but they arrive as
-        # base64url-encoded strings. We must decode them *before* passing them to the
-        # model constructor. This logic must be self-contained and not rely on the
-        # state of the object after any partial instantiation.
+        # The webauthn library expects certain fields to be bytes, but they arrive as base64url-encoded
+        # strings. We must decode them *before* passing them to the model constructor.
+        # This logic is now made safe with .get() to prevent KeyErrors.
         response_data = data_snake_case.get("response", {})
 
-        # Decode all necessary fields from strings to bytes, modifying the dictionary in place.
-        data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
-        data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
-        response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
-        response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
-        data_snake_case["response"] = response_data
+        # Decode all necessary fields from strings to bytes, checking for existence first.
+        if data_snake_case.get("id"):
+            data_snake_case["id"] = base64url_to_bytes(data_snake_case["id"])
+        if data_snake_case.get("raw_id"):
+            data_snake_case["raw_id"] = base64url_to_bytes(data_snake_case["raw_id"])
+        if response_data.get("client_data_json"):
+            response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
+        if response_data.get("attestation_object"):
+            response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
 
         return model(**data_snake_case)
     except Exception as e:
