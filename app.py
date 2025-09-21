@@ -38,19 +38,47 @@ def haversine(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
 
+def _to_snake_case(d):
+    """Recursively convert dictionary keys from camelCase to snake_case."""
+    if isinstance(d, str):
+        return d
+    if isinstance(d, list):
+        return [_to_snake_case(i) for i in d]
+    if isinstance(d, dict):
+        return {re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower(): _to_snake_case(v) for k, v in d.items()}
+    return d
+
 def parse_webauthn_credential(model, json_data):
     """
     Parses a JSON string into a WebAuthn model object,
-    handling both new (model_validate_json) and old (parse_raw) methods
-    to prevent version-related crashes.
+    handling different library versions and naming conventions.
     """
     # This is the most robust method. Instead of relying on parsing methods
     # that change between library versions, we parse the JSON ourselves and
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
+    from webauthn.helpers import base64url_to_bytes
+
     try:
-        data = json.loads(json_data)
-        return model(**data)
+        data_camel_case = json.loads(json_data)
+        data_snake_case = _to_snake_case(data_camel_case)
+
+        # The webauthn library expects certain fields to be bytes, but they arrive as base64url-encoded
+        # strings. We must decode them *before* passing them to the model constructor.
+        # This logic is now made safe with .get() to prevent KeyErrors.
+        response_data = data_snake_case.get("response", {})
+
+        # Decode all necessary fields from strings to bytes, checking for existence first.
+        if data_snake_case.get("raw_id"):
+            raw_id_bytes = base64url_to_bytes(data_snake_case["raw_id"])
+            data_snake_case["raw_id"] = raw_id_bytes
+            data_snake_case["id"] = raw_id_bytes  # Ensure id and raw_id are equivalent
+        if response_data.get("client_data_json"):
+            response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
+        if response_data.get("attestation_object"):
+            response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
+
+        return model(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 

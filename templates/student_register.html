@@ -179,7 +179,6 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
 
         // 4. Encode the credential to a JSON-friendly format
         const attestation = {
-            id: credential.id,
             rawId: bufferEncode(credential.rawId),
             response: {
                 clientDataJSON: bufferEncode(credential.response.clientDataJSON),
