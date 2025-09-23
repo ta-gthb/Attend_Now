@@ -17,9 +17,9 @@ from db_utils import (init_db, get_connection, get_all_departments, add_departme
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
-from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
-from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
+from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response, verify_authentication_response
+from webauthn.helpers import base64url_to_bytes
+from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential, parse_credential_json, AttestationResponse, AuthenticationResponse
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -38,66 +38,6 @@ def haversine(lat1, lon1, lat2, lon2):
     dlat, dlon = lat2 - lat1, lon2 - lon1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
-
-def _to_snake_case(d):
-    """Recursively convert dictionary keys from camelCase to snake_case."""
-    if isinstance(d, str):
-        return d
-    if isinstance(d, list):
-        return [_to_snake_case(i) for i in d]
-    if isinstance(d, dict):
-        return {re.sub(r'(?<!^)(?=[A-Z])', '_', k).lower(): _to_snake_case(v) for k, v in d.items()}
-    return d
-
-def parse_webauthn_credential(model, json_data):
-    """
-    Parses a JSON string into a WebAuthn model object,
-    handling different library versions and naming conventions.
-    """
-    # This is the most robust method. Instead of relying on parsing methods
-    # that change between library versions, we parse the JSON ourselves and
-    # instantiate the model directly using keyword arguments. This works for
-    # both modern Pydantic models and older dataclass-based models.
-    
-    # Create a simple, version-agnostic object to hold response data.
-    # This avoids both ImportErrors on old webauthn versions and
-    # AttributeErrors from the verification function expecting an object.
-    class SimpleWebAuthnResponse:
-        def __init__(self, client_data_json, attestation_object):
-            self.client_data_json = client_data_json
-            self.attestation_object = attestation_object
-
-    try:
-        data_camel_case = json.loads(json_data)
-        data_snake_case = _to_snake_case(data_camel_case)
-
-        response_data = data_snake_case.get("response", {})
-        
-        # Helper to ensure value is a string before decoding from base64url
-        def _ensure_str(val):
-            if isinstance(val, bytes):
-                return val.decode('utf-8')
-            return val
-
-        if data_snake_case.get("raw_id"):
-            raw_id_str = _ensure_str(data_snake_case["raw_id"])
-            raw_id_bytes = base64url_to_bytes(raw_id_str)
-            data_snake_case["id"] = raw_id_str
-            data_snake_case["raw_id"] = raw_id_bytes
-        
-        data_snake_case["response"] = SimpleWebAuthnResponse(
-<<<<<<< HEAD
-=======
-            client_data_json=base64url_to_bytes(response_data.get("client_data_json")),
-            attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
->>>>>>> e5cff2ae6d83005d8109fbf17af4f3b337a9d218
-            client_data_json=base64url_to_bytes(_ensure_str(response_data.get("client_data_json"))),
-            attestation_object=base64url_to_bytes(_ensure_str(response_data.get("attestation_object"))),
-        )
-
-        return RegistrationCredential(**data_snake_case)
-    except Exception as e:
-        raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
@@ -138,8 +78,8 @@ def student_login_verify():
 
     # --- WebAuthn Verification ---
     if auth_response_json:
-        try:
-            auth_response = parse_webauthn_credential(AuthenticationCredential, auth_response_json)
+        try: # Use the library's parse_credential_json
+            auth_response = parse_credential_json(auth_response_json, AuthenticationCredential)
             verification = verify_authentication_response(
                 credential=auth_response,
                 expected_challenge=session["webauthn_challenge"],
@@ -241,7 +181,8 @@ def student_register():
                 flash("A WebAuthn device registration is required before completing.", "error")
                 return redirect(url_for('student_register'))
 
-            attestation = parse_webauthn_credential(RegistrationCredential, attestation_json)
+            # Use the library's parse_credential_json
+            attestation = parse_credential_json(attestation_json, RegistrationCredential)
             verification = verify_registration_response(
                 credential=attestation,
                 expected_challenge=session["webauthn_challenge"],
@@ -298,9 +239,9 @@ def student_register_options():
 
     # This is the definitive fix for the ValueError/UnicodeDecodeError cycle.
     # We must pass bytes, but the bytes must also be UTF-8 safe to avoid
-    # errors during verification. Encoding the user ID to hex, and then
-    # encoding that hex string to bytes, satisfies both requirements.
-    user_id_bytes = student_id.encode("utf-8").hex().encode("ascii")
+    # errors during verification.
+    # Simplify user_id to just UTF-8 encoded bytes. The webauthn library handles further encoding.
+    user_id_bytes = student_id.encode("utf-8")
 
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
