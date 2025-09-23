@@ -86,6 +86,11 @@ def parse_webauthn_credential(model, json_data):
             data_snake_case["raw_id"] = raw_id_bytes
         
         data_snake_case["response"] = SimpleWebAuthnResponse(
+<<<<<<< HEAD
+=======
+            client_data_json=base64url_to_bytes(response_data.get("client_data_json")),
+            attestation_object=base64url_to_bytes(response_data.get("attestation_object")),
+>>>>>>> e5cff2ae6d83005d8109fbf17af4f3b337a9d218
             client_data_json=base64url_to_bytes(_ensure_str(response_data.get("client_data_json"))),
             attestation_object=base64url_to_bytes(_ensure_str(response_data.get("attestation_object"))),
         )
@@ -271,6 +276,9 @@ def student_register():
         except sqlite3.IntegrityError:
             # This catches UNIQUE constraint violations (student_id, email, etc.)
             flash("A student with this ID, Roll Number, or Email already exists.", "error")
+            return redirect(url_for('student_register'))
+        except UnicodeDecodeError:
+            flash("There was an error processing the registration data. Please ensure you are not uploading a file and try again.", "error")
             return redirect(url_for('student_register'))
         except Exception as e:
             flash(f"An unexpected error occurred during registration: {e}", "error")
