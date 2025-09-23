@@ -18,6 +18,7 @@ from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -57,28 +58,39 @@ def parse_webauthn_credential(model, json_data):
     # that change between library versions, we parse the JSON ourselves and
     # instantiate the model directly using keyword arguments. This works for
     # both modern Pydantic models and older dataclass-based models.
-    from webauthn.helpers import base64url_to_bytes
+    
+    # Create a simple, version-agnostic object to hold response data.
+    # This avoids both ImportErrors on old webauthn versions and
+    # AttributeErrors from the verification function expecting an object.
+    class SimpleWebAuthnResponse:
+        def __init__(self, client_data_json, attestation_object):
+            self.client_data_json = client_data_json
+            self.attestation_object = attestation_object
 
     try:
         data_camel_case = json.loads(json_data)
         data_snake_case = _to_snake_case(data_camel_case)
 
-        # The webauthn library expects certain fields to be bytes, but they arrive as base64url-encoded
-        # strings. We must decode them *before* passing them to the model constructor.
-        # This logic is now made safe with .get() to prevent KeyErrors.
         response_data = data_snake_case.get("response", {})
+        
+        # Helper to ensure value is a string before decoding from base64url
+        def _ensure_str(val):
+            if isinstance(val, bytes):
+                return val.decode('utf-8')
+            return val
 
-        # Decode all necessary fields from strings to bytes, checking for existence first.
         if data_snake_case.get("raw_id"):
-            raw_id_bytes = base64url_to_bytes(data_snake_case["raw_id"])
+            raw_id_str = _ensure_str(data_snake_case["raw_id"])
+            raw_id_bytes = base64url_to_bytes(raw_id_str)
+            data_snake_case["id"] = raw_id_str
             data_snake_case["raw_id"] = raw_id_bytes
-            data_snake_case["id"] = raw_id_bytes  # Ensure id and raw_id are equivalent
-        if response_data.get("client_data_json"):
-            response_data["client_data_json"] = base64url_to_bytes(response_data["client_data_json"])
-        if response_data.get("attestation_object"):
-            response_data["attestation_object"] = base64url_to_bytes(response_data["attestation_object"])
+        
+        data_snake_case["response"] = SimpleWebAuthnResponse(
+            client_data_json=base64url_to_bytes(_ensure_str(response_data.get("client_data_json"))),
+            attestation_object=base64url_to_bytes(_ensure_str(response_data.get("attestation_object"))),
+        )
 
-        return model(**data_snake_case)
+        return RegistrationCredential(**data_snake_case)
     except Exception as e:
         raise TypeError(f"Failed to instantiate {model.__name__} from JSON. Error: {e}. JSON: {json_data}") from e
 
@@ -276,10 +288,16 @@ def student_register_options():
     if not student_id or not name:
         return "Student ID and Name are required.", 400
 
+    # This is the definitive fix for the ValueError/UnicodeDecodeError cycle.
+    # We must pass bytes, but the bytes must also be UTF-8 safe to avoid
+    # errors during verification. Encoding the user ID to hex, and then
+    # encoding that hex string to bytes, satisfies both requirements.
+    user_id_bytes = student_id.encode("utf-8").hex().encode("ascii")
+
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
-        user_id=student_id.encode("utf-8"),
+        user_id=user_id_bytes,
         user_name=name,
         # By removing exclude_credentials, we allow a user to register a new device,
         # which will overwrite their old credential upon form submission.
