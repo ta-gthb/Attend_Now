@@ -110,7 +110,7 @@ def student_login_verify():
     with get_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT start_time, time_limit FROM sessions
+            SELECT id, start_time, time_limit FROM sessions
             WHERE date = ? AND department = ? AND year = ?
         """, (today, student_dept, student_year))
         all_sessions_today = c.fetchall()
