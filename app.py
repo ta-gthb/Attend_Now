@@ -264,9 +264,11 @@ def student_login_options():
     if not student or not student['credential_id']:
         return jsonify({"error": "No security key registered for this student ID."}), 404
 
-    # The credential_id from the database is a BLOB, which is read as raw bytes.
-    # This is the format expected by the `generate_authentication_options` function.
-    allow_credentials = [{"id": student['credential_id'], "type": "public-key"}]
+    # The credential_id from the DB is raw bytes (BLOB).
+    # The `options_to_json` function expects the `id` within `allow_credentials`
+    # to be a base64url STRING, not bytes. We must encode it manually.
+    credential_id_b64url = bytes_to_base64url(student['credential_id'])
+    allow_credentials = [{"id": credential_id_b64url, "type": "public-key"}]
 
     options = generate_authentication_options(
         rp_id=request.host.split(':')[0],
