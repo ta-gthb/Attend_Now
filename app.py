@@ -260,9 +260,17 @@ def student_login_options():
     if not student_id:
         return "Student ID is required.", 400
 
+    student = get_student_by_student_id(student_id)
+    if not student or not student['credential_id']:
+        return jsonify({"error": "No security key registered for this student ID."}), 404
+
+    # Prepare the credential for the options
+    allow_credentials = [{"id": student['credential_id'], "type": "public-key"}]
+
     options = generate_authentication_options(
         rp_id=request.host.split(':')[0],
         user_verification="required",
+        allow_credentials=allow_credentials,
     )
     session["webauthn_challenge"] = options.challenge
     return options_to_json(options)
