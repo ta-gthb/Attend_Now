@@ -264,20 +264,23 @@ def student_login_options():
     if not student or not student['credential_id']:
         return jsonify({"error": "No security key registered for this student ID."}), 404
 
-    # The credential_id from the DB is raw bytes (BLOB).
-    # The `options_to_json` function expects the `id` within `allow_credentials`
-    # to be a base64url STRING, not bytes. We must encode it manually.
+    # FINAL FIX: Manually construct the options to ensure correct serialization.
+    # The `options_to_json` helper does not correctly handle the `id` inside `allow_credentials`.
+    # 1. Generate a challenge.
+    challenge = generate_authentication_options(rp_id=request.host.split(':')[0]).challenge
+    session["webauthn_challenge"] = challenge
+
+    # 2. Encode the credential ID from the DB (bytes) into a base64url string for JSON.
     credential_id_b64url = bytes_to_base64url(student['credential_id'])
-    allow_credentials = [{"id": credential_id_b64url, "type": "public-key"}]
 
-    options = generate_authentication_options(
-        rp_id=request.host.split(':')[0],
-        user_verification="required",
-        allow_credentials=allow_credentials,
-    )
-    session["webauthn_challenge"] = options.challenge
-    return options_to_json(options)
+    # 3. Manually build the options dictionary.
+    options = {
+        "challenge": bytes_to_base64url(challenge),
+        "allowCredentials": [{"type": "public-key", "id": credential_id_b64url}],
+        "userVerification": "required",
+    }
 
+    return jsonify(options)
 
 @app.route('/teacher/generate-qr/<int:session_id>')
 def generate_qr(session_id):
