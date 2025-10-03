@@ -120,14 +120,14 @@ def student_login_verify():
         end_time = start_time + timedelta(minutes=sess['time_limit'])
         if start_time <= now <= end_time:
             # Found an active session, proceed to scanner
-            return redirect(url_for("student_scan_qr"))
+            return redirect(url_for("student_scan_qr", session_id=sess['id']))
 
     # No active sessions found
-    return "<h3>📌 No active session available for your department and year right now.</h3><a href='/student/logout'>Logout</a>"
+    return render_template("no_active_session.html", student_name=session["student_name"])
 
 
-@app.route("/student/scan-qr")
-def student_scan_qr():
+@app.route("/student/scan-qr/<int:session_id>")
+def student_scan_qr(session_id):
     if "student_id" not in session:
         return redirect(url_for("student_login"))
     return render_template("student_scan_qr.html", student_name=session["student_name"])
