@@ -110,20 +110,29 @@ def student_login_verify():
     with get_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT id, start_time, time_limit FROM sessions
+            SELECT s.id, s.start_time, s.time_limit, sub.subject_name
             WHERE date = ? AND department = ? AND year = ?
+            FROM sessions s
+            JOIN subjects sub ON s.subject_id = sub.id
         """, (today, student_dept, student_year))
         all_sessions_today = c.fetchall()
 
+    active_sessions = []
     for sess in all_sessions_today:
         start_time = datetime.strptime(f"{today} {sess['start_time']}", "%Y-%m-%d %H:%M")
         end_time = start_time + timedelta(minutes=sess['time_limit'])
         if start_time <= now <= end_time:
-            # Found an active session, proceed to scanner
-            return redirect(url_for("student_scan_qr", session_id=sess['id']))
+            active_sessions.append(sess)
 
-    # No active sessions found
-    return render_template("no_active_session.html", student_name=session["student_name"])
+    if len(active_sessions) == 1:
+        # If only one session is active, redirect straight to the scanner.
+        return redirect(url_for("student_scan_qr", session_id=active_sessions[0]['id']))
+    elif len(active_sessions) > 1:
+        # If multiple sessions are active, let the student choose.
+        return render_template("choose_session.html", active_sessions=active_sessions, student_name=session["student_name"])
+    else:
+        # If no sessions are active, show the info page.
+        return render_template("no_active_session.html", student_name=session["student_name"])
 
 
 @app.route("/student/scan-qr/<int:session_id>")

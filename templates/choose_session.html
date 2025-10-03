@@ -15,26 +15,15 @@
     </div>
 
     <div class="card shadow-sm p-4">
-        <h4 class="mb-3">🕒 Select a class session to mark attendance</h4>
+        <h4 class="mb-3">🕒 Multiple sessions are active. Please select a class to scan for.</h4>
 
-        {% if sessions %}
-        <form method="POST" action="/student/mark-attendance">
-            <input type="hidden" name="student_id" value="{{ session['student_id'] }}">
-
-            <div class="mb-3">
-                <label for="session_id" class="form-label">Active Sessions</label>
-                <select name="session_id" id="session_id" class="form-select" required>
-                    {% for sid, subject in sessions %}
-                        <option value="{{ sid }}">{{ subject }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <button type="submit" class="btn btn-success">📌 Mark Attendance</button>
-        </form>
-        {% else %}
-        <div class="alert alert-info">No active sessions available right now.</div>
-        {% endif %}
+        {% for session_item in active_sessions %}
+        <div class="d-grid gap-2 mb-2">
+            <a href="{{ url_for('student_scan_qr', session_id=session_item.id) }}" class="btn btn-primary btn-lg">
+                {{ session_item.subject_name }}
+            </a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
