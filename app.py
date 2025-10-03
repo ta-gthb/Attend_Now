@@ -248,7 +248,10 @@ def student_register_options():
         c.execute("SELECT credential_id FROM students WHERE credential_id IS NOT NULL")
         existing_creds = c.fetchall()
 
-    exclude_credentials = [{"id": cred["credential_id"], "type": "public-key"} for cred in existing_creds]
+    # The `options_to_json` helper expects the `id` within `exclude_credentials`
+    # to be a base64url STRING, not bytes. We must encode it manually.
+    exclude_credentials = [{"id": bytes_to_base64url(cred["credential_id"]), "type": "public-key"}
+                           for cred in existing_creds]
 
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
