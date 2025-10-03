@@ -18,7 +18,7 @@ from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
-from webauthn.helpers import parse_registration_credential_json, parse_authentication_credential_json
+from webauthn.helpers import parse_registration_credential_json, parse_authentication_credential_json, base64url_to_bytes
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -265,7 +265,10 @@ def student_login_options():
         return jsonify({"error": "No security key registered for this student ID."}), 404
 
     # Prepare the credential for the options
-    allow_credentials = [{"id": student['credential_id'], "type": "public-key"}]
+    # The credential ID from the DB is base64url-encoded bytes. Decode it back to raw bytes.
+    decoded_credential_id = base64url_to_bytes(student['credential_id'])
+
+    allow_credentials = [{"id": decoded_credential_id, "type": "public-key"}]
 
     options = generate_authentication_options(
         rp_id=request.host.split(':')[0],
