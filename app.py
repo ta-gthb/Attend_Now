@@ -111,9 +111,9 @@ def student_login_verify():
         c = conn.cursor()
         c.execute("""
             SELECT s.id, s.start_time, s.time_limit, sub.subject_name
-            WHERE date = ? AND department = ? AND year = ?
             FROM sessions s
             JOIN subjects sub ON s.subject_id = sub.id
+            WHERE s.date = ? AND s.department = ? AND s.year = ?
         """, (today, student_dept, student_year))
         all_sessions_today = c.fetchall()
 
