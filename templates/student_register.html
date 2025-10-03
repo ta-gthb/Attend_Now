@@ -178,8 +178,13 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         try {
             credential = await navigator.credentials.create({ publicKey: options });
         } catch (e) {
-            alert('Registration failed or was cancelled.');
             console.error(e);
+            // Check if the error is because the device is already registered.
+            if (e.name === 'NotAllowedError') {
+                alert('This device has already been registered, possibly for another student. Please use a different device or contact an administrator.');
+            } else {
+                alert('Registration failed or was cancelled.');
+            }
             return;
         }
 
