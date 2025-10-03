@@ -18,7 +18,7 @@ from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
-from webauthn.helpers import parse_registration_credential_json, parse_authentication_credential_json, base64url_to_bytes
+from webauthn.helpers import parse_registration_credential_json, parse_authentication_credential_json, base64url_to_bytes, bytes_to_base64url
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -264,9 +264,11 @@ def student_login_options():
     if not student or not student['credential_id']:
         return jsonify({"error": "No security key registered for this student ID."}), 404
 
-    # Prepare the credential for the options
-    # The credential ID from the DB is a base64url string. Decode it back to raw bytes.
-    credential_id_bytes = base64url_to_bytes(student['credential_id'])
+    # The credential_id from the DB is raw bytes (BLOB).
+    # The `base64url_to_bytes` function expects a base64url *string*.
+    # So, we must first encode the bytes to a string, then decode it back.
+    credential_id_b64url = bytes_to_base64url(student['credential_id'])
+    credential_id_bytes = base64url_to_bytes(credential_id_b64url)
 
     allow_credentials = [{"id": credential_id_bytes, "type": "public-key"}]
 
