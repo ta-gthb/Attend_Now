@@ -202,14 +202,14 @@ def student_register():
                         UPDATE students 
                         SET name=?, department=?, roll_no=?, email=?, year=?, credential_id=?, public_key=?, sign_count=?
                         WHERE id=?
-                    """, (name, dept, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count, existing_student['id']))
+                    """, (name, dept, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0, existing_student['id']))
                     flash("Your student record and security key have been updated successfully.", "success")
                 else:
                     # Student is new, so INSERT a new record
                     c.execute("""
                         INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, verification.new_sign_count))
+                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0))
                     flash("Registration successful! You can now log in.", "success")
                 conn.commit()
             return redirect(url_for('student_login'))
