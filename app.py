@@ -18,8 +18,7 @@ from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
 from webauthn import generate_registration_options, options_to_json, verify_registration_response, generate_authentication_options, verify_authentication_response
-from webauthn.helpers import base64url_to_bytes
-from webauthn.helpers.structs import RegistrationCredential, AuthenticationCredential, AttestationResponse, AuthenticationResponse, parse_credential_json
+from webauthn.helpers import parse_registration_credential_json, parse_authentication_credential_json
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -79,9 +78,9 @@ def student_login_verify():
     # --- WebAuthn Verification ---
     if auth_response_json:
         try: # Use the library's parse_credential_json
-            auth_response = parse_credential_json(auth_response_json, AuthenticationCredential)
-            verification = verify_authentication_response(
-                credential=auth_response,
+            auth_cred = parse_authentication_credential_json(auth_response_json)
+            verification = verify_authentication_response( # type: ignore
+                credential=auth_cred,
                 expected_challenge=session["webauthn_challenge"],
                 expected_rp_id=request.host.split(':')[0],
                 expected_origin=request.origin,
@@ -182,9 +181,9 @@ def student_register():
                 return redirect(url_for('student_register'))
 
             # Use the library's parse_credential_json
-            attestation = parse_credential_json(attestation_json, RegistrationCredential)
-            verification = verify_registration_response(
-                credential=attestation,
+            reg_cred = parse_registration_credential_json(attestation_json)
+            verification = verify_registration_response( # type: ignore
+                credential=reg_cred,
                 expected_challenge=session["webauthn_challenge"],
                 expected_rp_id=request.host.split(':')[0],
                 expected_origin=request.origin,
