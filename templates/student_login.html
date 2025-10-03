@@ -101,11 +101,6 @@ body { background:#f8f9fa; }
 
         // 2. Turn challenge and IDs into buffers
         options.challenge = bufferDecode(options.challenge);
-        if (options.allowCredentials) {
-            for (let cred of options.allowCredentials) {
-                cred.id = bufferDecode(cred.id);
-            }
-        }
 
         // 3. Call navigator.credentials.get()
         let credential;
