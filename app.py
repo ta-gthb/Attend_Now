@@ -265,10 +265,10 @@ def student_login_options():
         return jsonify({"error": "No security key registered for this student ID."}), 404
 
     # Prepare the credential for the options
-    # The credential ID from the DB is base64url-encoded bytes. Decode it back to raw bytes.
-    decoded_credential_id = base64url_to_bytes(student['credential_id'])
+    # The credential ID from the DB is a base64url string. Decode it back to raw bytes.
+    credential_id_bytes = base64url_to_bytes(student['credential_id'])
 
-    allow_credentials = [{"id": decoded_credential_id, "type": "public-key"}]
+    allow_credentials = [{"id": credential_id_bytes, "type": "public-key"}]
 
     options = generate_authentication_options(
         rp_id=request.host.split(':')[0],
