@@ -185,6 +185,7 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
                 clientDataJSON: bufferEncode(credential.response.clientDataJSON),
                 attestationObject: bufferEncode(credential.response.attestationObject),
             },
+            type: credential.type,
         };
 
         // 5. Populate the hidden field and update UI
