@@ -126,6 +126,7 @@ body { background:#f8f9fa; }
                 authenticatorData: bufferEncode(credential.response.authenticatorData),
                 signature: bufferEncode(credential.response.signature),
             },
+            type: credential.type,
         };
 
         // 5. Populate the hidden field and submit the form
