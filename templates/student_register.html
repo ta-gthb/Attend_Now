@@ -159,7 +159,7 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         try {
             options = await resp.json();
         } catch (e) {
-            alert('Failed to get registration options from server.');
+            alert('This device is already registered with another student.');
             return;
         }
 
