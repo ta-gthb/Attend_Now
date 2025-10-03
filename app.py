@@ -260,6 +260,7 @@ def student_login_options():
     if not student_id:
         return "Student ID is required.", 400
 
+    student_id = int(student_id)
     student = get_student_by_student_id(student_id)
     if not student or not student['credential_id']:
         return jsonify({"error": "No security key registered for this student ID."}), 404
