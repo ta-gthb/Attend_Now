@@ -119,8 +119,13 @@ def student_login_verify():
 
     active_sessions = []
     for sess in all_sessions_today:
-        start_time = datetime.strptime(f"{today} {sess['start_time']}", "%Y-%m-%d %H:%M")
+        # Handle both 'HH:MM' and 'HH:MM:SS' time formats from the database.
+        time_format = "%Y-%m-%d %H:%M"
+        if ':' in sess['start_time'] and sess['start_time'].count(':') == 2:
+            time_format = "%Y-%m-%d %H:%M:%S"
+        start_time = datetime.strptime(f"{today} {sess['start_time']}", time_format)
         end_time = start_time + timedelta(minutes=sess['time_limit'])
+
         if start_time <= now <= end_time:
             active_sessions.append(sess)
 
