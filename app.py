@@ -280,7 +280,22 @@ def student_register_options():
         exclude_credentials=exclude_credentials,
     )
     session["webauthn_challenge"] = options.challenge
-    return options_to_json(options)
+
+    # Manually construct the JSON response to ensure correct encoding.
+    # The `options_to_json` helper can have issues with `exclude_credentials`.
+    response_data = {
+        "challenge": bytes_to_base64url(options.challenge),
+        "rp": options.rp,
+        "user": {
+            "id": bytes_to_base64url(options.user.id),
+            "name": options.user.name,
+            "displayName": options.user.display_name,
+        },
+        "pubKeyCredParams": options.pub_key_cred_params,
+        "excludeCredentials": exclude_credentials, # This is already correctly formatted
+        "authenticatorSelection": options.authenticator_selection,
+    }
+    return jsonify(response_data)
 
 
 @app.route("/student/login/options", methods=["POST"])
