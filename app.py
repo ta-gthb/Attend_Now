@@ -266,8 +266,11 @@ def student_register_options():
         c.execute("SELECT credential_id FROM students WHERE credential_id IS NOT NULL")
         existing_creds = c.fetchall()
 
-    exclude_credentials = [{"id": bytes_to_base64url(cred["credential_id"]), "type": "public-key"}
-                           for cred in existing_creds]
+    # The credential_id is stored as bytes. The bytes_to_base64url function expects bytes.
+    # This list comprehension correctly handles the bytes from the database.
+    exclude_credentials = [
+        {"id": bytes_to_base64url(cred["credential_id"]), "type": "public-key"} for cred in existing_creds
+    ]
 
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
