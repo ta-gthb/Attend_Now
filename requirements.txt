@@ -10,3 +10,4 @@ python-dotenv==1.0.0
 qrcode==7.4.2
 webauthn==2.1.0
 Werkzeug==3.0.1
+pytz==2024.1

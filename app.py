@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import time
 import csv
 import re
+import pytz
 from db_utils import (init_db, get_connection, get_all_departments, add_department,
                       delete_department, promote_students, get_student_by_student_id,
                       update_student_sign_count)
@@ -102,7 +103,9 @@ def student_login_verify():
     session["student_name"] = student["name"]
 
     # Check for active sessions before redirecting
-    now = datetime.now()
+    # Use a specific timezone (e.g., IST) to avoid server/client time mismatches.
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
     today = now.date().isoformat()
     student_dept = student["department"]
     student_year = student["year"]
@@ -123,7 +126,10 @@ def student_login_verify():
         time_format = "%Y-%m-%d %H:%M"
         if ':' in sess['start_time'] and sess['start_time'].count(':') == 2:
             time_format = "%Y-%m-%d %H:%M:%S"
-        start_time = datetime.strptime(f"{today} {sess['start_time']}", time_format)
+        # Make the start_time timezone-aware before comparison
+        naive_start_time = datetime.strptime(f"{today} {sess['start_time']}", time_format)
+        start_time = ist.localize(naive_start_time)
+
         end_time = start_time + timedelta(minutes=sess['time_limit'])
 
         if start_time <= now <= end_time:
