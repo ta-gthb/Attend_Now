@@ -168,8 +168,9 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         }
 
         // 2. Turn challenge and user ID into buffers
+        // The server provides user.id already encoded, so we only decode the challenge.
         options.challenge = bufferDecode(options.challenge);
-        options.user.id = bufferDecode(options.user.id);
+
         // Decode the excluded credential IDs from base64url to ArrayBuffer
         if (options.excludeCredentials) {
             for (let cred of options.excludeCredentials) {
