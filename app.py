@@ -211,37 +211,34 @@ def student_register():
             )
 
             with get_connection() as conn:
-                c = conn.cursor()
-                # Check if a student with this ID already exists
-                c.execute("SELECT id FROM students WHERE student_id=?", (student_id,))
-                existing_student = c.fetchone()
-
-                if existing_student:
-                    # Student exists, so UPDATE their record with the new WebAuthn credential
-                    c.execute("""
-                        UPDATE students 
-                        SET name=?, department=?, roll_no=?, email=?, year=?, credential_id=?, public_key=?, sign_count=?
-                        WHERE id=?
-                    """, (name, dept, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0, existing_student['id']))
-                    flash("Your student record and security key have been updated successfully.", "success")
-                else:
-                    # Student is new, so INSERT a new record
-                    c.execute("""
-                        INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0))
-                    flash("Registration successful! You can now log in.", "success")
+                # For a new registration, we should only be inserting.
+                # The UNIQUE constraints on the table will handle errors.
+                conn.execute("""
+                    INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0))
                 conn.commit()
+                flash("Registration successful! You can now log in.", "success")
+
             return redirect(url_for('student_login'))
-        except sqlite3.IntegrityError:
-            # This catches UNIQUE constraint violations (student_id, email, etc.)
-            flash("A student with this ID, Roll Number, or Email already exists.", "error")
+
+        except sqlite3.IntegrityError as e:
+            error_msg = str(e).lower()
+            if 'students.student_id' in error_msg:
+                flash("A student with this Student ID already exists.", "error")
+            elif 'students.email' in error_msg:
+                flash("A student with this Email already exists.", "error")
+            elif 'roll_no, department' in error_msg:
+                flash("A student with this Roll Number already exists in this department.", "error")
+            else:
+                flash("A student with this ID, Roll Number, or Email already exists.", "error")
             return redirect(url_for('student_register'))
+
         except UnicodeDecodeError:
             flash("There was an error processing the registration data. Please ensure you are not uploading a file and try again.", "error")
             return redirect(url_for('student_register'))
         except Exception as e:
-            flash(f"An unexpected error occurred during registration: {e}", "error")
+            flash(f"An unexpected error occurred: {e}", "error")
             return redirect(url_for('student_register'))
 
     # For GET: Render registration page
