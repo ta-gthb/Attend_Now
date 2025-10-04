@@ -156,16 +156,14 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         });
 
         let options;
-        try {
-            options = await resp.json();
-        } catch (e) {
-            // This can happen if the server sends an error (e.g., 400)
-            // and the body is not valid JSON.
+        if (!resp.ok) {
+            // If the server returned an error (like 500), show the error text.
             const errorText = await resp.text();
             console.error('Failed to get registration options:', errorText);
-            alert(`This device is already registered with another student: ${errorText}`);
+            alert(`Server error during registration setup: ${errorText}`);
             return;
         }
+        options = await resp.json();
 
         // 2. Turn challenge and user ID into buffers
         // The server provides user.id already encoded, so we only decode the challenge.
