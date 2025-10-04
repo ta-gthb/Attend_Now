@@ -262,14 +262,22 @@ def student_register_options():
     # Simplify user_id to just UTF-8 encoded bytes. The webauthn library handles further encoding.
     user_id_bytes = student_id.encode("utf-8")
 
+    # Fetch all existing credential IDs to prevent re-registration of the same device
+    # across different student accounts.
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT credential_id FROM students WHERE credential_id IS NOT NULL")
+        existing_creds = c.fetchall()
+
+    exclude_credentials = [{"id": bytes_to_base64url(cred["credential_id"]), "type": "public-key"}
+                           for cred in existing_creds]
+
     options = generate_registration_options(
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
         user_id=user_id_bytes,
         user_name=name,
-        # For a new student registration, we don't need to exclude any credentials.
-        # This was incorrectly blocking new registrations on different devices.
-        exclude_credentials=[],
+        exclude_credentials=exclude_credentials,
     )
     session["webauthn_challenge"] = options.challenge
     return options_to_json(options)

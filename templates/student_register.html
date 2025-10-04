@@ -159,7 +159,11 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         try {
             options = await resp.json();
         } catch (e) {
-            alert('This device is already registered with another student.');
+            // This can happen if the server sends an error (e.g., 400)
+            // and the body is not valid JSON.
+            const errorText = await resp.text();
+            console.error('Failed to get registration options:', errorText);
+            alert(`This device is already registered with another student: ${errorText}`);
             return;
         }
 
@@ -179,8 +183,9 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
             credential = await navigator.credentials.create({ publicKey: options });
         } catch (e) {
             console.error(e);
-            // Check if the error is because the device is already registered.
-            if (e.name === 'NotAllowedError') {
+            // A "NotAllowedError" is the most common error when a credential in the
+            // excludeCredentials list is used.
+            if (e.name === 'NotAllowedError' || e.message.includes('already registered')) {
                 alert('This device has already been registered, possibly for another student. Please use a different device or contact an administrator.');
             } else {
                 alert('Registration failed or was cancelled.');
