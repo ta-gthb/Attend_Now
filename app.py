@@ -170,7 +170,9 @@ def mark_attendance():
         if not session_id or not expiry or int(time.time()) > expiry:
             return "Invalid or expired QR code.", 400
 
-        now = datetime.now()
+        # Use a specific timezone (e.g., IST) to ensure consistent time recording.
+        ist = pytz.timezone('Asia/Kolkata')
+        now = datetime.now(ist)
         with get_connection() as conn:
             # Check if already marked
             res = conn.execute("SELECT id FROM attendance WHERE student_id = ? AND session_id = ?", (session['student_id'], session_id)).fetchone()
