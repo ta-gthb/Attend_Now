@@ -65,12 +65,12 @@ def get_teacher_department(teacher_id):
 # ------------------ Student Promotion ------------------ #
 
 def promote_students():
-    promotion_map = {"First": "Second", "Second": "Third", "Third": "Fourth"}
+    promotion_map = {"Third": "Fourth", "Second": "Third", "First": "Second"}
     with get_connection() as conn:
         c = conn.cursor()
         # First, delete fourth-year students (or they could be archived)
         c.execute("DELETE FROM students WHERE year = ?", ("Fourth",))
-        # Then, promote the other years
+        # Then, promote the other years in reverse order to avoid cascading promotions.
         for current_year, next_year in promotion_map.items():
             c.execute("UPDATE students SET year = ? WHERE year = ?", (next_year, current_year))
         conn.commit()
