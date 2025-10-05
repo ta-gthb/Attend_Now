@@ -76,11 +76,11 @@
         <h4>📅 Your Class Sessions</h4>
 
         {% set year_sessions = {} %}
-        {% for sid, subject, date, time, limit, year in sessions %}
+        {% for sid, subject, date, time, limit, year, department in sessions %}
             {% if year not in year_sessions %}
                 {% set _ = year_sessions.update({year: []}) %}
             {% endif %}
-            {% set _ = year_sessions[year].append((sid, subject, date, time, limit)) %}
+            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department)) %}
         {% endfor %}
 
         {% for year, session_list in year_sessions.items() %}
@@ -91,6 +91,7 @@
                         <tr>
                             <th>Subject</th>
                             <th>Date</th>
+                            <th>Department</th>
                             <th>Start Time</th>
                             <th>Duration</th>
                             <th>Actions</th>
@@ -98,10 +99,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for sid, subject, date, time, limit in session_list %}
+                        {% for sid, subject, date, time, limit, department in session_list %}
                         <tr>
                             <td>{{ subject }}</td>
                             <td>{{ date }}</td>
+                            <td>{{ department }}</td>
                             <td>{{ time }}</td>
                             <td>{{ limit }} min</td>
                             <td>

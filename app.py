@@ -425,8 +425,8 @@ def teacher_dashboard():
 
         # Fetch sessions with subject name and year (required for grouping in frontend)
         c.execute('''
-            SELECT sessions.id, subjects.subject_name, sessions.date,
-                   sessions.start_time, sessions.time_limit, sessions.year
+            SELECT sessions.id, subjects.subject_name, sessions.date, sessions.start_time,
+                   sessions.time_limit, sessions.year, sessions.department
             FROM sessions
             JOIN subjects ON sessions.subject_id = subjects.id
             WHERE sessions.teacher_id = ?
