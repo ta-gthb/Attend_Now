@@ -306,7 +306,7 @@ def student_login_options():
 
     student = get_student_by_student_id(student_id)
     if not student or not student['credential_id']:
-        return jsonify({"error": "No security key registered for this student ID."}), 404
+        return jsonify({"error": "This student ID is not registered with this device."}), 404
 
     # FINAL FIX: Manually construct the options to ensure correct serialization.
     # The `options_to_json` helper does not correctly handle the `id` inside `allow_credentials`.

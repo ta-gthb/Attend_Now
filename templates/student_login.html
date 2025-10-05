@@ -91,6 +91,13 @@ body { background:#f8f9fa; }
             body: `student_id=${encodeURIComponent(studentId)}`
         });
 
+        // Check if the server responded with an error (like 404 Not Found)
+        if (!resp.ok) {
+            const errorData = await resp.json();
+            alert(errorData.error || 'An unknown error occurred. Please check the Student ID.');
+            return;
+        }
+
         let options;
         try {
             options = await resp.json();
