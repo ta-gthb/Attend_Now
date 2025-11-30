@@ -53,12 +53,7 @@ def db_query(query, params=(), fetchone=False, commit=False):
                 return c.fetchone()
             return c.fetchall()
 
-def to_year_string(year_int):
-    """Converts an integer year to its string representation."""
-    if year_int is None:
-        return ''
-    year_map = {1: "First", 2: "Second", 3: "Third", 4: "Fourth"}
-    return year_map.get(year_int, str(year_int))
+
 
 
 
@@ -204,20 +199,13 @@ def student_register():
             student_id = request.form['student_id']
             roll_no = request.form['roll_no']
             email = request.form['email']
-            year_str = request.form['year']
             attestation_json = request.form.get('webauthn_attestation')
-
-            # Convert year string (e.g., "Second") to an integer
-            year_map = {"First": 1, "Second": 2, "Third": 3, "Fourth": 4}
-            year = year_map.get(year_str)
-            if year is None:
-                flash("Invalid academic year selected. Please try again.", "error")
-                return redirect(url_for('student_register'))
-
+            year = request.form['year']
             if not attestation_json:
                 flash("A WebAuthn device registration is required before completing.", "error")
                 return redirect(url_for('student_register'))
 
+            year = request.form['year']
             # Use the library's parse_credential_json
             reg_cred = parse_registration_credential_json(attestation_json)
             verification = verify_registration_response( # type: ignore
@@ -425,9 +413,7 @@ def teacher_dashboard():
                 date = request.form['date']
                 start_time = request.form['start_time']
                 time_limit = int(request.form['time_limit'])
-                year_str = request.form['year']
-                year_map = {"First": 1, "Second": 2, "Third": 3, "Fourth": 4}
-                year = year_map.get(year_str)
+                year = request.form['year']
                 department = request.form['department']
 
                 if department not in departments:
@@ -455,9 +441,7 @@ def teacher_dashboard():
             ''', (tid,))
             sessions = c_select.fetchall()
 
-            # Convert year to string for display
-            for s in sessions:
-                s['year'] = to_year_string(s['year'])
+
 
     return render_template('teacher_dashboard.html',
                            teacher_name=teacher_name,
@@ -487,7 +471,7 @@ def export_session_csv(session_id):
             return "Session not found."
 
         date, year, department, subject_name = session_data
-        year = to_year_string(year)
+
 
         # Sanitize subject name for use in filename
         safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
@@ -604,8 +588,7 @@ def manage_students():
 
             c.execute(query, tuple(params))
             students = c.fetchall()
-            for s in students:
-                s['year'] = to_year_string(s['year'])
+
 
     return render_template("manage_students.html",
                            students=students,

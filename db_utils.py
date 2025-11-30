@@ -41,7 +41,7 @@ def init_db():
             student_id TEXT UNIQUE NOT NULL,
             roll_no TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
-            year INTEGER NOT NULL,
+            year TEXT NOT NULL,
             credential_id BYTEA UNIQUE,
             public_key BYTEA,
             sign_count INTEGER,
@@ -67,7 +67,7 @@ def init_db():
             date DATE NOT NULL,
             start_time TIME NOT NULL,
             time_limit INTEGER NOT NULL,
-            year INTEGER NOT NULL,
+            year TEXT NOT NULL,
             department TEXT REFERENCES departments(name)
         );
 
@@ -140,9 +140,11 @@ def promote_students():
     with get_connection() as conn:
         with conn.cursor() as cur:
             # First, delete all students who are in their fourth year.
-            cur.execute("DELETE FROM students WHERE year = 4")
-            # Then, promote the remaining students (1st, 2nd, 3rd year).
-            cur.execute("UPDATE students SET year = year + 1 WHERE year < 4")
+            cur.execute("DELETE FROM students WHERE year = 'Fourth'")
+            # Then, promote the remaining students.
+            cur.execute("UPDATE students SET year = 'Fourth' WHERE year = 'Third'")
+            cur.execute("UPDATE students SET year = 'Third' WHERE year = 'Second'")
+            cur.execute("UPDATE students SET year = 'Second' WHERE year = 'First'")
         conn.commit()
 
 def get_student_by_student_id(student_id):
