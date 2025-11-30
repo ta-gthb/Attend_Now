@@ -470,14 +470,15 @@ def export_session_csv(session_id):
 
         date, year, department, subject_name = session_data
 
-            # Sanitize subject name for use in filename
-            safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
+        # Sanitize subject name for use in filename
+        safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
 
-            # Fetch attendance data
-            c.execute('''SELECT students.name, students.roll_no, students.department, attendance.time 
-                        FROM attendance 
-                        JOIN students ON attendance.student_id = students.id 
-                        WHERE attendance.session_id = %s''', (session_id,))
+        # Fetch attendance data within the same cursor context
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute('''SELECT students.name, students.roll_no, students.department, attendance.time
+                         FROM attendance
+                         JOIN students ON attendance.student_id = students.id
+                         WHERE attendance.session_id = %s''', (session_id,))
             rows = c.fetchall()
 
     # Prepare CSV content
