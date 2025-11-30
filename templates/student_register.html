@@ -26,7 +26,7 @@ body { background:#f8f9fa; }
 
 
 <p class="small-muted">
-Register your student account and secure it with a WebAuthn device (e.g., security key, fingerprint, or face recognition).
+Register your student account and secure it with a passkey (e.g., security key, fingerprint, or face scan).
 </p>
 
 
@@ -122,10 +122,10 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
 
     // Check for WebAuthn availability
     if (window.PublicKeyCredential) {
-        statusEl.textContent = '✅ WebAuthn is available on this browser.';
+        statusEl.textContent = '✅ Passkey authentication is available on this browser.';
         createCredentialBtn.disabled = false;
     } else {
-        statusEl.textContent = '❌ WebAuthn is not available on this browser. You cannot register.';
+        statusEl.textContent = '❌ Passkey authentication is not available on this browser. You cannot register.';
         createCredentialBtn.disabled = true;
     }
 
@@ -134,7 +134,7 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
         // Ensure WebAuthn is provided
         if (!attestationInput.value) {
             e.preventDefault();
-            alert('Please register a device with WebAuthn before completing the registration.');
+            alert('Please register a device with passkey before completing the registration.');
         }
     });
 
@@ -186,9 +186,9 @@ Register your student account and secure it with a WebAuthn device (e.g., securi
             // A "NotAllowedError" is the most common error when a credential in the
             // excludeCredentials list is used.
             if (e.name === 'NotAllowedError' || e.message.includes('already registered')) {
-                alert('This device has already been registered, possibly for another student. Please use a different device or contact an administrator.');
+                alert('Device registration failed or was cancelled.');
             } else {
-                alert('Registration failed or was cancelled.');
+                alert('This device has already been registered for another student. Please use a different device or security key or contact administrator.');
             }
             return;
         }

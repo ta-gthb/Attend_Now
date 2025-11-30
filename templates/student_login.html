@@ -23,7 +23,7 @@ body { background:#f8f9fa; }
     {% endif %}
 {% endwith %}
 
-<p class="muted">Login using your registered security key or platform authenticator (e.g., fingerprint, face recognition, or device PIN).</p>
+<p class="muted">Login using your registered security key or passkey (e.g. fingerprint, face scan, or device PIN).</p>
 <form id="loginForm" method="POST" action="/student/login/verify">
 <input type="hidden" name="webauthn_assertion" id="webauthn_assertion">
 
@@ -69,10 +69,10 @@ body { background:#f8f9fa; }
 
     // Check for WebAuthn availability
     if (window.PublicKeyCredential) {
-        statusEl.textContent = '✅ WebAuthn is available on this browser.';
+        statusEl.textContent = '✅ Passkey authentication is available on this browser.';
         getAssertionBtn.disabled = false;
     } else {
-        statusEl.textContent = '❌ WebAuthn is not supported on this browser. Please try a different browser.';
+        statusEl.textContent = '❌ Passkey authentication is not supported on this browser. Please try a different browser.';
         getAssertionBtn.disabled = true;
     }
 
@@ -80,7 +80,7 @@ body { background:#f8f9fa; }
     getAssertionBtn.addEventListener('click', async () => {
         const studentId = studentIdInput.value;
         if (!studentId) {
-            alert('Please enter your Student ID first.');
+            alert('Please enter your Student ID');
             return;
         }
 
@@ -119,7 +119,7 @@ body { background:#f8f9fa; }
         try {
             credential = await navigator.credentials.get({ publicKey: options });
         } catch (e) {
-            alert('WebAuthn login failed or was cancelled.');
+            alert('Login failed or was cancelled.');
             console.error(e);
             return;
         }

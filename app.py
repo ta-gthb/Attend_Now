@@ -6,15 +6,15 @@ import base64
 from io import BytesIO
 from io import StringIO
 from PIL import Image
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from datetime import datetime, timedelta
 import time
 import csv
 import re
 import pytz
 from db_utils import (init_db, get_connection, get_all_departments, add_department,
-                      delete_department, promote_students, get_student_by_student_id,
-                      update_student_sign_count)
+                      delete_department, promote_students, get_student_by_student_id, update_student_sign_count)
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
@@ -41,14 +41,17 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def db_query(query, params=(), fetchone=False, commit=False):
     """Utility wrapper for SQLite queries."""
+    # This function is no longer ideal as cursor management is more explicit with psycopg2.
+    # It's better to refactor calls to use the 'with get_connection()' pattern directly.
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute(query, params)
-        if commit:
-            conn.commit()
-        if fetchone:
-            return c.fetchone()
-        return c.fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute(query, params)
+            if commit:
+                conn.commit()
+                return None # No return value on commit
+            if fetchone:
+                return c.fetchone()
+            return c.fetchall()
 
 
 
@@ -111,14 +114,14 @@ def student_login_verify():
     student_year = student["year"]
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("""
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("""
             SELECT s.id, s.start_time, s.time_limit, sub.subject_name
             FROM sessions s
             JOIN subjects sub ON s.subject_id = sub.id
-            WHERE s.date = ? AND s.department = ? AND s.year = ?
-        """, (today, student_dept, student_year))
-        all_sessions_today = c.fetchall()
+            WHERE s.date = %s AND s.department = %s AND s.year = %s
+            """, (today, student_dept, student_year))
+            all_sessions_today = c.fetchall()
 
     active_sessions = []
     for sess in all_sessions_today:
@@ -174,12 +177,13 @@ def mark_attendance():
         ist = pytz.timezone('Asia/Kolkata')
         now = datetime.now(ist)
         with get_connection() as conn:
-            # Check if already marked
-            res = conn.execute("SELECT id FROM attendance WHERE student_id = ? AND session_id = ?", (session['student_id'], session_id)).fetchone()
-            if res:
-                return "You have already marked attendance for this session.", 200
-            conn.execute("INSERT INTO attendance (student_id, session_id, date, time) VALUES (?, ?, ?, ?)",
-                         (session['student_id'], session_id, now.date().isoformat(), now.time().strftime('%H:%M:%S')))
+            with conn.cursor() as c:
+                # Check if already marked
+                c.execute("SELECT id FROM attendance WHERE student_id = %s AND session_id = %s", (session['student_id'], session_id))
+                if c.fetchone():
+                    return "You have already marked attendance for this session.", 200
+                c.execute("INSERT INTO attendance (student_id, session_id, date, time) VALUES (%s, %s, %s, %s)",
+                            (session['student_id'], session_id, now.date().isoformat(), now.time().strftime('%H:%M:%S')))
         return "✅ Attendance marked successfully!", 200
     except (json.JSONDecodeError, Exception) as e:
         return f"Error processing QR data: {e}", 400
@@ -213,18 +217,19 @@ def student_register():
             )
 
             with get_connection() as conn:
-                # For a new registration, we should only be inserting.
-                # The UNIQUE constraints on the table will handle errors.
-                conn.execute("""
-                    INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0))
-                conn.commit()
-                flash("Registration successful! You can now log in.", "success")
+                with conn.cursor() as c:
+                    # For a new registration, we should only be inserting.
+                    # The UNIQUE constraints on the table will handle errors.
+                    c.execute("""
+                        INSERT INTO students (name, department, student_id, roll_no, email, year, credential_id, public_key, sign_count)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (name, dept, student_id, roll_no, email, year, verification.credential_id, verification.credential_public_key, 0))
+                    conn.commit()
+                    flash("Registration successful! You can now log in.", "success")
 
             return redirect(url_for('student_login'))
 
-        except sqlite3.IntegrityError as e:
+        except psycopg2.IntegrityError as e:
             error_msg = str(e).lower()
             if 'students.student_id' in error_msg:
                 flash("A student with this Student ID already exists.", "error")
@@ -264,9 +269,9 @@ def student_register_options():
     # Fetch all existing credential IDs to prevent re-registration of the same device
     # across different student accounts.
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT credential_id FROM students WHERE credential_id IS NOT NULL")
-        existing_creds = c.fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT credential_id FROM students WHERE credential_id IS NOT NULL")
+            existing_creds = c.fetchall()
 
     # The credential_id is stored as bytes. The bytes_to_base64url function expects bytes.
     # This list comprehension correctly handles the bytes from the database.
@@ -278,6 +283,7 @@ def student_register_options():
         rp_id=request.host.split(':')[0],
         rp_name="AttendNow",
         user_id=user_id_bytes,
+        user_display_name=name,
         user_name=name,
         exclude_credentials=exclude_credentials,
     )
@@ -336,10 +342,10 @@ def generate_qr(session_id):
         return redirect("/teacher/login")
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, subject_id, date, start_time, time_limit FROM sessions WHERE id = ? AND teacher_id = ?",
-                  (session_id, teacher_id))
-        sess = c.fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT id, subject_id, date, start_time, time_limit FROM sessions WHERE id = %s AND teacher_id = %s",
+                      (session_id, teacher_id))
+            sess = c.fetchone()
 
     if not sess:
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
@@ -363,13 +369,13 @@ def teacher_login_inline():
     password = request.form.get('teacher_password')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, username, password FROM teachers WHERE username = ?", (username,))
-        teacher = c.fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT id, username, password FROM teachers WHERE username = %s", (username,))
+            teacher = c.fetchone()
  
     if teacher and check_password_hash(teacher['password'], password):
-        session['teacher_id'] = teacher[0]
-        session['teacher_name'] = teacher[1]
+        session['teacher_id'] = teacher['id']
+        session['teacher_name'] = teacher['username']
         return redirect('/teacher/dashboard')
     else:
         return render_template('home.html', teacher_error="❌ Invalid teacher credentials.")
@@ -386,22 +392,22 @@ def teacher_dashboard():
     teacher_name = session['teacher_name']
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            # Fetch departments assigned to this teacher
+            c.execute("SELECT department FROM teacher_department WHERE teacher_id = %s", (tid,))
+            departments = [row['department'] for row in c.fetchall()]
 
-        # Fetch departments assigned to this teacher
-        c.execute("SELECT department FROM teacher_department WHERE teacher_id = ?", (tid,))
-        departments = [row[0] for row in c.fetchall()]
-
-        # Fetch subjects assigned to this teacher
-        c.execute('''
-            SELECT s.id, s.subject_name, s.subject_code
-            FROM subjects s
-            JOIN teacher_subject ts ON s.id = ts.subject_id
-            WHERE ts.teacher_id = ?
-        ''', (tid,))
-        subjects = c.fetchall()
+            # Fetch subjects assigned to this teacher
+            c.execute('''
+                SELECT s.id, s.subject_name, s.subject_code
+                FROM subjects s
+                JOIN teacher_subject ts ON s.id = ts.subject_id
+                WHERE ts.teacher_id = %s
+            ''', (tid,))
+            subjects = c.fetchall()
 
         if request.method == 'POST':
+            # This block needs to be inside the 'with' statement for the cursor 'c'
             try:
                 subject_id = request.form['subject_id']
                 date = request.form['date']
@@ -413,26 +419,27 @@ def teacher_dashboard():
                 if department not in departments:
                     return "❌ You are not authorized to create sessions for this department.", 403
 
-                c.execute('''
-                    INSERT INTO sessions
-                    (teacher_id, subject_id, date, start_time, time_limit, year, department)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (tid, subject_id, date, start_time, time_limit, year, department))
-                conn.commit()
+                with conn.cursor() as c_insert:
+                    c_insert.execute('''
+                        INSERT INTO sessions
+                        (teacher_id, subject_id, date, start_time, time_limit, year, department)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ''', (tid, subject_id, date, start_time, time_limit, year, department))
+                    conn.commit()
 
             except Exception as e:
                 return f"An error occurred while creating the session: {str(e)}", 500
 
-        # Fetch sessions with subject name and year (required for grouping in frontend)
-        c.execute('''
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c_select:
+            c_select.execute('''
             SELECT sessions.id, subjects.subject_name, sessions.date, sessions.start_time,
                    sessions.time_limit, sessions.year, sessions.department
             FROM sessions
             JOIN subjects ON sessions.subject_id = subjects.id
-            WHERE sessions.teacher_id = ?
+            WHERE sessions.teacher_id = %s
             ORDER BY sessions.date DESC, sessions.start_time DESC
-        ''', (tid,))
-        sessions = c.fetchall()
+            ''', (tid,))
+            sessions = c_select.fetchall()
 
     return render_template('teacher_dashboard.html',
                            teacher_name=teacher_name,
@@ -448,30 +455,30 @@ def export_session_csv(session_id):
         return redirect('/teacher/login')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        # Get session details: date, subject name, and year
-        c.execute('''
-            SELECT sessions.date, sessions.year, sessions.department, subjects.subject_name
-            FROM sessions
-            JOIN subjects ON sessions.subject_id = subjects.id
-            WHERE sessions.id = ?
-        ''', (session_id,))
-        session_data = c.fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            # Get session details: date, subject name, and year
+            c.execute('''
+                SELECT sessions.date, sessions.year, sessions.department, subjects.subject_name
+                FROM sessions
+                JOIN subjects ON sessions.subject_id = subjects.id
+                WHERE sessions.id = %s
+            ''', (session_id,))
+            session_data = c.fetchone()
 
         if not session_data:
             return "Session not found."
 
         date, year, department, subject_name = session_data
 
-        # Sanitize subject name for use in filename
-        safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
+            # Sanitize subject name for use in filename
+            safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
 
-        # Fetch attendance data
-        c.execute('''SELECT students.name, students.roll_no, students.department, attendance.time 
-                    FROM attendance 
-                    JOIN students ON attendance.student_id = students.id 
-                    WHERE attendance.session_id = ?''', (session_id,))
-        rows = c.fetchall()
+            # Fetch attendance data
+            c.execute('''SELECT students.name, students.roll_no, students.department, attendance.time 
+                        FROM attendance 
+                        JOIN students ON attendance.student_id = students.id 
+                        WHERE attendance.session_id = %s''', (session_id,))
+            rows = c.fetchall()
 
     # Prepare CSV content
     output = StringIO()
@@ -493,12 +500,12 @@ def admin_login_inline():
     password = request.form.get('admin_password')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, password FROM admins WHERE username = ?", (username,))
-        admin = c.fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT id, password FROM admins WHERE username = %s", (username,))
+            admin = c.fetchone()
  
     if admin and check_password_hash(admin['password'], password):
-        session['admin_id'] = admin[0]
+        session['admin_id'] = admin['id']
         session['admin_username'] = username
         return redirect('/admin/dashboard')
     else:
@@ -511,11 +518,11 @@ def admin_dashboard():
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM students")
-        student_count = c.fetchone()[0]
-        c.execute("SELECT COUNT(*) FROM sessions WHERE date = ?", (datetime.now().date().isoformat(),))
-        today_sessions = c.fetchone()[0]
+        with conn.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM students")
+            student_count = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM sessions WHERE date = %s", (datetime.now().date().isoformat(),))
+            today_sessions = c.fetchone()[0]
 
     return render_template('admin_dashboard.html',
                            student_count=student_count,
@@ -527,28 +534,28 @@ def edit_student(student_id):
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
-        if request.method == 'POST':
-            name = request.form['name']
-            department = request.form['department']
-            student_id_val = request.form['student_id']
-            roll_no = request.form['roll_no']
-            email = request.form['email']
-            year = request.form['year']
+            if request.method == 'POST':
+                name = request.form['name']
+                department = request.form['department']
+                student_id_val = request.form['student_id']
+                roll_no = request.form['roll_no']
+                email = request.form['email']
+                year = request.form['year']
 
-            c.execute('''UPDATE students
-                        SET name=?, department=?, student_id=?, roll_no=?, email=?, year=?
-                        WHERE id=?''',
-                    (name, department, student_id_val, roll_no, email, year, student_id))
-            conn.commit()
-            return redirect('/admin/manage-students')
+                c.execute('''UPDATE students
+                            SET name=%s, department=%s, student_id=%s, roll_no=%s, email=%s, year=%s
+                            WHERE id=%s''',
+                        (name, department, student_id_val, roll_no, email, year, student_id))
+                conn.commit()
+                return redirect('/admin/manage-students')
 
-        c.execute("SELECT * FROM students WHERE id = ?", (student_id,))
-        student = c.fetchone()
+            c.execute("SELECT * FROM students WHERE id = %s", (student_id,))
+            student = c.fetchone()
 
-        c.execute("SELECT name FROM departments")
-        departments = [row[0] for row in c.fetchall()]
+            c.execute("SELECT name FROM departments")
+            departments = [row['name'] for row in c.fetchall()]
 
     return render_template('edit_student.html', student=student, departments=departments)
 
@@ -558,25 +565,25 @@ def manage_students():
     year_filter = request.args.get('year')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
-        # Get departments for dropdown
-        c.execute("SELECT * FROM departments")
-        departments = c.fetchall()
+            # Get departments for dropdown
+            c.execute("SELECT * FROM departments")
+            departments = c.fetchall()
 
-        # Build the filter query
-        query = "SELECT id, name, department, student_id, roll_no, email, year FROM students WHERE 1=1"
-        params = []
+            # Build the filter query
+            query = "SELECT id, name, department, student_id, roll_no, email, year FROM students WHERE 1=1"
+            params = []
 
-        if dept_filter:
-            query += " AND department = ?"
-            params.append(dept_filter)
-        if year_filter:
-            query += " AND year = ?"
-            params.append(year_filter)
+            if dept_filter:
+                query += " AND department = %s"
+                params.append(dept_filter)
+            if year_filter:
+                query += " AND year = %s"
+                params.append(year_filter)
 
-        c.execute(query, params)
-        students = c.fetchall()
+            c.execute(query, tuple(params))
+            students = c.fetchall()
 
     return render_template("manage_students.html",
                            students=students,
@@ -591,43 +598,48 @@ def manage_teachers():
         return redirect('/admin/login')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
-        c.execute("SELECT * FROM departments")
-        departments = c.fetchall()
-        c.execute("SELECT id, subject_name, subject_code FROM subjects")
-        subjects = c.fetchall()
+            c.execute("SELECT * FROM departments")
+            departments = c.fetchall()
+            c.execute("SELECT id, subject_name, subject_code FROM subjects")
+            subjects = c.fetchall()
 
-        # Handle Add Teacher form submission
-        if request.method == 'POST' and request.form.get('action') == 'add':
-            username = request.form['username']
-            password = request.form['password']
-            selected_departments = request.form.getlist('departments')
-            selected_subjects = request.form.getlist('subjects')
-            hashed_password = generate_password_hash(password)
+            # Handle Add Teacher form submission
+            if request.method == 'POST' and request.form.get('action') == 'add':
+                username = request.form['username']
+                password = request.form['password']
+                selected_departments = request.form.getlist('departments')
+                selected_subjects = request.form.getlist('subjects')
+                hashed_password = generate_password_hash(password)
 
-            # Insert new teacher
-            c.execute("INSERT INTO teachers (username, password) VALUES (?, ?)", (username, hashed_password))
-            teacher_id = c.lastrowid
+                # Insert new teacher and get the new ID
+                c.execute("INSERT INTO teachers (username, password) VALUES (%s, %s) RETURNING id", (username, hashed_password))
+                teacher_id = c.fetchone()['id']
 
-            # Assign departments
-            for dept in selected_departments:
-                c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (?, ?)", (teacher_id, dept))
+                # Assign departments
+                for dept in selected_departments:
+                    c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (%s, %s)", (teacher_id, dept))
 
-            # Assign subjects
-            for subject_id in selected_subjects:
-                c.execute("INSERT INTO teacher_subject (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id))
+                # Assign subjects
+                for subject_id in selected_subjects:
+                    c.execute("INSERT INTO teacher_subject (teacher_id, subject_id) VALUES (%s, %s)", (teacher_id, subject_id))
 
-            conn.commit()
+                conn.commit()
 
-        c.execute('''
-            SELECT t.id, t.username, GROUP_CONCAT(DISTINCT td.department), GROUP_CONCAT(DISTINCT s.subject_id)
-            FROM teachers t
-            LEFT JOIN teacher_department td ON t.id = td.teacher_id
-            LEFT JOIN teacher_subject s ON t.id = s.teacher_id
-            GROUP BY t.id
-        ''')
-        teachers = c.fetchall()
+            # PostgreSQL uses STRING_AGG instead of GROUP_CONCAT
+            c.execute('''
+                SELECT 
+                    t.id, 
+                    t.username, 
+                    STRING_AGG(DISTINCT td.department, ',') as departments,
+                    STRING_AGG(DISTINCT s.subject_id::text, ',') as subject_ids
+                FROM teachers t
+                LEFT JOIN teacher_department td ON t.id = td.teacher_id
+                LEFT JOIN teacher_subject s ON t.id = s.teacher_id
+                GROUP BY t.id
+            ''')
+            teachers = c.fetchall()
 
         teacher_departments = {
             teacher_id: [dept.strip() for dept in (dept_str or '').split(',') if dept_str]
@@ -652,16 +664,16 @@ def update_teacher_subjects(teacher_id):
     selected_subjects = request.form.getlist('subjects')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor() as c:
 
-        # Remove all current subject assignments for this teacher
-        c.execute("DELETE FROM teacher_subject WHERE teacher_id = ?", (teacher_id,))
+            # Remove all current subject assignments for this teacher
+            c.execute("DELETE FROM teacher_subject WHERE teacher_id = %s", (teacher_id,))
 
-        # Add new subject assignments
-        for subject_id in selected_subjects:
-            c.execute("INSERT INTO teacher_subject (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id))
+            # Add new subject assignments
+            for subject_id in selected_subjects:
+                c.execute("INSERT INTO teacher_subject (teacher_id, subject_id) VALUES (%s, %s)", (teacher_id, subject_id))
 
-        conn.commit()
+            conn.commit()
 
     return redirect('/admin/manage-teachers')
 @app.route('/admin/update-teacher-departments/<int:teacher_id>', methods=['POST'])
@@ -672,16 +684,16 @@ def update_teacher_departments(teacher_id):
     selected_departments = request.form.getlist('departments')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor() as c:
 
-        # Remove existing departments
-        c.execute("DELETE FROM teacher_department WHERE teacher_id = ?", (teacher_id,))
+            # Remove existing departments
+            c.execute("DELETE FROM teacher_department WHERE teacher_id = %s", (teacher_id,))
 
-        # Insert new selections
-        for dept in selected_departments:
-            c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (?, ?)", (teacher_id, dept))
+            # Insert new selections
+            for dept in selected_departments:
+                c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (%s, %s)", (teacher_id, dept))
 
-        conn.commit()
+            conn.commit()
 
     return redirect('/admin/manage-teachers')
 
@@ -690,27 +702,27 @@ def add_subject():
     if 'admin_id' not in session:
         return redirect('/')
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
-        edit_subject = None
+            edit_subject = None
 
-        if request.method == 'POST':
-            subject_id = request.form.get('subject_id')
-            name = request.form.get('subject_name')
-            code = request.form.get('subject_code')
+            if request.method == 'POST':
+                subject_id = request.form.get('subject_id')
+                name = request.form.get('subject_name')
+                code = request.form.get('subject_code')
 
-            if subject_id:  # Update
-                c.execute("UPDATE subjects SET subject_name = ?, subject_code = ? WHERE id = ?", (name, code, subject_id))
-            else:  # Add
-                try:
-                    c.execute("INSERT INTO subjects (subject_name, subject_code) VALUES (?, ?)", (name, code))
-                except sqlite3.IntegrityError:
-                    return "❌ Subject code already exists!"
+                if subject_id:  # Update
+                    c.execute("UPDATE subjects SET subject_name = %s, subject_code = %s WHERE id = %s", (name, code, subject_id))
+                else:  # Add
+                    try:
+                        c.execute("INSERT INTO subjects (subject_name, subject_code) VALUES (%s, %s)", (name, code))
+                    except psycopg2.IntegrityError:
+                        return "❌ Subject code already exists!"
 
-            conn.commit()
+                conn.commit()
 
-        c.execute("SELECT id, subject_name, subject_code FROM subjects")
-        subjects = c.fetchall()
+            c.execute("SELECT id, subject_name, subject_code FROM subjects")
+            subjects = c.fetchall()
     return render_template("add_subject.html", subjects=subjects, edit_subject=edit_subject)
 
 
@@ -720,14 +732,14 @@ def edit_subject(subject_id):
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, subject_name, subject_code FROM subjects WHERE id = ?", (subject_id,))
-        subject = c.fetchone()
-        c.execute("SELECT id, subject_name, subject_code FROM subjects")
-        subjects = c.fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT id, subject_name, subject_code FROM subjects WHERE id = %s", (subject_id,))
+            subject = c.fetchone()
+            c.execute("SELECT id, subject_name, subject_code FROM subjects")
+            subjects = c.fetchall()
 
     if subject:
-        subject_dict = {'id': subject[0], 'subject_name': subject[1], 'subject_code': subject[2]}
+        subject_dict = {'id': subject['id'], 'subject_name': subject['subject_name'], 'subject_code': subject['subject_code']}
         return render_template("add_subject.html", subjects=subjects, edit_subject=subject_dict)
     else:
         return redirect('/admin/add-subject')
@@ -739,9 +751,9 @@ def delete_subject(subject_id):
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("DELETE FROM subjects WHERE id = ?", (subject_id,))
-        conn.commit()
+        with conn.cursor() as c:
+            c.execute("DELETE FROM subjects WHERE id = %s", (subject_id,))
+            conn.commit()
     return redirect('/admin/add-subject')
 
 @app.route('/admin/update-teacher/<int:teacher_id>', methods=['POST'])
@@ -752,16 +764,16 @@ def update_teacher_department(teacher_id):
     new_departments = request.form.getlist('departments')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        
-        # Clear old departments
-        c.execute("DELETE FROM teacher_department WHERE teacher_id = ?", (teacher_id,))
+        with conn.cursor() as c:
+            
+            # Clear old departments
+            c.execute("DELETE FROM teacher_department WHERE teacher_id = %s", (teacher_id,))
 
-        # Insert new ones
-        for dept in new_departments:
-            c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (?, ?)", (teacher_id, dept))
+            # Insert new ones
+            for dept in new_departments:
+                c.execute("INSERT INTO teacher_department (teacher_id, department) VALUES (%s, %s)", (teacher_id, dept))
 
-        conn.commit()
+            conn.commit()
     return redirect('/admin/manage-teachers')
 @app.route('/admin/manage-departments', methods=['GET', 'POST'])
 def manage_departments():
@@ -769,30 +781,30 @@ def manage_departments():
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
-        if request.method == 'POST':
-            action = request.form.get('action')
-            if action == 'add':
-                dept_name = request.form.get('dept_name')
-                if dept_name:
-                    try:
-                        c.execute("INSERT INTO departments (name) VALUES (?)", (dept_name,))
-                        conn.commit()
-                    except sqlite3.IntegrityError:
-                        return "❌ Department already exists."
-            elif action == 'delete':
-                dept_id = request.form.get('dept_id')
-                c.execute("DELETE FROM departments WHERE id = ?", (dept_id,))
-                conn.commit()
-            elif action == 'update':
-                dept_id = request.form.get('dept_id')
-                new_name = request.form.get('new_name')
-                c.execute("UPDATE departments SET name = ? WHERE id = ?", (new_name, dept_id))
-                conn.commit()
+            if request.method == 'POST':
+                action = request.form.get('action')
+                if action == 'add':
+                    dept_name = request.form.get('dept_name')
+                    if dept_name:
+                        try:
+                            c.execute("INSERT INTO departments (name) VALUES (%s)", (dept_name,))
+                            conn.commit()
+                        except psycopg2.IntegrityError:
+                            return "❌ Department already exists."
+                elif action == 'delete':
+                    dept_id = request.form.get('dept_id')
+                    c.execute("DELETE FROM departments WHERE id = %s", (dept_id,))
+                    conn.commit()
+                elif action == 'update':
+                    dept_id = request.form.get('dept_id')
+                    new_name = request.form.get('new_name')
+                    c.execute("UPDATE departments SET name = %s WHERE id = %s", (new_name, dept_id))
+                    conn.commit()
 
-        c.execute("SELECT id, name FROM departments")
-        departments = c.fetchall()
+            c.execute("SELECT id, name FROM departments")
+            departments = c.fetchall()
 
 
     return render_template("manage_departments.html", departments=departments)
@@ -806,9 +818,9 @@ def reset_teacher_password(teacher_id):
     hashed_password = generate_password_hash(new_password)
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("UPDATE teachers SET password = ? WHERE id = ?", (hashed_password, teacher_id))
-        conn.commit()
+        with conn.cursor() as c:
+            c.execute("UPDATE teachers SET password = %s WHERE id = %s", (hashed_password, teacher_id))
+            conn.commit()
  
     return redirect('/admin/manage-teachers')
 @app.route('/admin/edit-teacher/<int:teacher_id>')
@@ -817,22 +829,22 @@ def edit_teacher(teacher_id):
         return redirect('/')
     
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT username FROM teachers WHERE id = ?", (teacher_id,))
-        row = c.fetchone()
-        if not row:
-            return redirect('/admin/manage-teachers')
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT username FROM teachers WHERE id = %s", (teacher_id,))
+            row = c.fetchone()
+            if not row:
+                return redirect('/admin/manage-teachers')
 
-        username = row[0]
-        c.execute("SELECT department FROM teacher_department WHERE teacher_id = ?", (teacher_id,))
-        departments = [d[0] for d in c.fetchall()]
-        c.execute("SELECT * FROM departments")
-        all_departments = c.fetchall()
-        c.execute('''SELECT t.id, t.username, GROUP_CONCAT(td.department)
-                    FROM teachers t
-                    LEFT JOIN teacher_department td ON t.id = td.teacher_id
-                    GROUP BY t.id''')
-        teachers = c.fetchall()
+            username = row['username']
+            c.execute("SELECT department FROM teacher_department WHERE teacher_id = %s", (teacher_id,))
+            departments = [d['department'] for d in c.fetchall()]
+            c.execute("SELECT * FROM departments")
+            all_departments = c.fetchall()
+            c.execute('''SELECT t.id, t.username, STRING_AGG(td.department, ',') as departments
+                        FROM teachers t
+                        LEFT JOIN teacher_department td ON t.id = td.teacher_id
+                        GROUP BY t.id''')
+            teachers = c.fetchall()
 
     edit_teacher = {'id': teacher_id, 'username': username, 'departments': departments}
     return render_template("manage_teachers.html", edit_teacher=edit_teacher, teachers=teachers, departments=all_departments)
@@ -883,11 +895,11 @@ def delete_teacher(teacher_id):
         return redirect('/')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("DELETE FROM teacher_subject WHERE teacher_id = ?", (teacher_id,))
-        c.execute("DELETE FROM teacher_department WHERE teacher_id = ?", (teacher_id,))
-        c.execute("DELETE FROM teachers WHERE id = ?", (teacher_id,))
-        conn.commit()
+        with conn.cursor() as c:
+            c.execute("DELETE FROM teacher_subject WHERE teacher_id = %s", (teacher_id,))
+            c.execute("DELETE FROM teacher_department WHERE teacher_id = %s", (teacher_id,))
+            c.execute("DELETE FROM teachers WHERE id = %s", (teacher_id,))
+            conn.commit()
  
     return redirect('/admin/manage-teachers')
 
@@ -895,16 +907,16 @@ def delete_teacher(teacher_id):
 def edit_department(id):
     if request.method == 'POST':
         with get_connection() as conn:
-            new_name = request.form['name']
-            c = conn.cursor()
-            c.execute("UPDATE departments SET name = ? WHERE id = ?", (new_name, id))
-            conn.commit()
+            with conn.cursor() as c:
+                new_name = request.form['name']
+                c.execute("UPDATE departments SET name = %s WHERE id = %s", (new_name, id))
+                conn.commit()
         return redirect('/admin/manage-departments')
 
     with get_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT id, name FROM departments WHERE id = ?", (id,))
-        dept = c.fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("SELECT id, name FROM departments WHERE id = %s", (id,))
+            dept = c.fetchone()
     return render_template("edit_department.html", department=dept)
 
 @app.route('/admin/manage-campuses', methods=['GET', 'POST'])
@@ -920,21 +932,21 @@ def manage_campuses():
                 try:
                     lat = float(latitude)
                     lon = float(longitude)
-                    c.execute("INSERT INTO campuses (name, latitude, longitude) VALUES (?, ?, ?)", (name, lat, lon))
+                    c.execute("INSERT INTO campuses (name, latitude, longitude) VALUES (%s, %s, %s)", (name, lat, lon))
                     conn.commit()
                 except ValueError:
                     return "❌ Invalid latitude or longitude."
         
         c.execute("SELECT * FROM campuses")
         campuses = c.fetchall()
-    return render_template("manage_campuses.html", campuses=campuses)
+    return render_template("manage_campuses.html", campuses=campuses) # type: ignore
 
 
 @app.route('/admin/delete-campus/<int:campus_id>', methods=['POST'])
 def delete_campus(campus_id):
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("DELETE FROM campuses WHERE id = ?", (campus_id,))
+        c.execute("DELETE FROM campuses WHERE id = %s", (campus_id,))
         conn.commit()
     return redirect(url_for('manage_campuses'))
 
@@ -942,17 +954,17 @@ def delete_campus(campus_id):
 def delete_student(student_id):
     try:
         with get_connection() as conn:
-            c = conn.cursor()
+            c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             # The 'device_id' column is removed, but we can keep this structure
             # in case we want to delete other associated data in the future.
-            c.execute("SELECT id FROM students WHERE id = ?", (student_id,))
+            c.execute("SELECT id FROM students WHERE id = %s", (student_id,))
             result = c.fetchone()
 
             if result:
                 # If there were associated files to delete, the logic would go here.
                 # For example: os.remove(f"path/to/files/{student_id}.dat")
 
-                c.execute("DELETE FROM students WHERE id = ?", (student_id,))
+                c.execute("DELETE FROM students WHERE id = %s", (student_id,))
                 conn.commit()
         return redirect(url_for('manage_students'))
 
@@ -970,7 +982,7 @@ def edit_campus(campus_id):
             lon = float(longitude)
             with get_connection() as conn:
                 c = conn.cursor()
-                c.execute("UPDATE campuses SET name = ?, latitude = ?, longitude = ? WHERE id = ?", (name, lat, lon, campus_id))
+                c.execute("UPDATE campuses SET name = %s, latitude = %s, longitude = %s WHERE id = %s", (name, lat, lon, campus_id))
                 conn.commit()
             return redirect(url_for('manage_campuses'))
         except ValueError:
@@ -978,7 +990,7 @@ def edit_campus(campus_id):
 
     with get_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT * FROM campuses WHERE id = ?", (campus_id,))
+        c.execute("SELECT * FROM campuses WHERE id = %s", (campus_id,)) # type: ignore
         campus = c.fetchone()
     if not campus:
         return "❌ Campus not found."
@@ -989,7 +1001,8 @@ def delete_session(sid):
     if 'teacher_id' not in session:
         return redirect('/teacher/login')
     with get_connection() as conn: # Removed timeout=5 as get_connection does not accept it.
-        conn.execute("DELETE FROM sessions WHERE id = ? AND teacher_id = ?", (sid, session['teacher_id']))
+        with conn.cursor() as c:
+            c.execute("DELETE FROM sessions WHERE id = %s AND teacher_id = %s", (sid, session['teacher_id']))
     return redirect('/teacher/dashboard')
 
 @app.cli.command("init-db")
@@ -1001,4 +1014,4 @@ def init_db_command():
 if __name__ == '__main__':
     # The 'adhoc' SSL context is for development only.
     # Production servers like Gunicorn handle SSL.
-    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context='adhoc')
+    app.run(host='0.0.0.0', port=5000, debug=True)
