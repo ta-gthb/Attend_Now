@@ -199,8 +199,15 @@ def student_register():
             student_id = request.form['student_id']
             roll_no = request.form['roll_no']
             email = request.form['email']
-            year = request.form['year']
+            year_str = request.form['year']
             attestation_json = request.form.get('webauthn_attestation')
+
+            # Convert year string (e.g., "Second") to an integer
+            year_map = {"First": 1, "Second": 2, "Third": 3, "Fourth": 4}
+            year = year_map.get(year_str)
+            if year is None:
+                flash("Invalid academic year selected. Please try again.", "error")
+                return redirect(url_for('student_register'))
 
             if not attestation_json:
                 flash("A WebAuthn device registration is required before completing.", "error")

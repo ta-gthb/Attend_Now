@@ -116,8 +116,8 @@ def init_db():
 def get_all_departments():
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("SELECT name FROM departments ORDER BY name")
-            return [row['name'] for row in cur.fetchall()]
+            cur.execute("SELECT id, name FROM departments ORDER BY name")
+            return cur.fetchall()
 
 def add_department(dept_name):
     try:
