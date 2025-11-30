@@ -1012,6 +1012,30 @@ def init_db_command():
     init_db()
     click.echo("Initialized the database.")
 
+# --- DANGEROUS: For one-time database initialization on Render Free Tier ---
+# This endpoint will WIPE and RECREATE your entire database.
+# 1. Set a very secret key in your Render Environment Variables for SECRET_INIT_KEY.
+# 2. Deploy your app.
+# 3. Visit https://your-app-name.onrender.com/init-db/your-secret-key ONCE.
+# 4. REMOVE the SECRET_INIT_KEY environment variable from Render immediately.
+@app.route('/init-db/<secret_key>')
+def auto_init_db(secret_key):
+    # Get the secret key from environment variables
+    env_secret_key = os.getenv('SECRET_INIT_KEY')
+
+    # If the key is not set in the environment, or if the key doesn't match, abort.
+    if not env_secret_key or secret_key != env_secret_key:
+        from flask import abort
+        abort(404) # Return 'Not Found' to hide the endpoint's existence
+
+    try:
+        init_db()
+        message = "✅ Database has been successfully initialized."
+    except Exception as e:
+        message = f"❌ An error occurred during database initialization: {e}"
+    
+    return f"<h3>{message}</h3><p><b>IMPORTANT:</b> Please remove the SECRET_INIT_KEY environment variable from your Render dashboard now.</p>"
+
 if __name__ == '__main__':
     # The 'adhoc' SSL context is for development only.
     # Production servers like Gunicorn handle SSL.
