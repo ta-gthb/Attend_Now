@@ -420,7 +420,9 @@ def teacher_dashboard():
                 date = request.form['date']
                 start_time = request.form['start_time']
                 time_limit = int(request.form['time_limit'])
-                year = request.form['year']
+                year_str = request.form['year']
+                year_map = {"First": 1, "Second": 2, "Third": 3, "Fourth": 4}
+                year = year_map.get(year_str)
                 department = request.form['department']
 
                 if department not in departments:
