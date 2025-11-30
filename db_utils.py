@@ -139,7 +139,9 @@ def delete_department(dept_id):
 def promote_students():
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # This logic remains the same
+            # First, delete all students who are in their fourth year.
+            cur.execute("DELETE FROM students WHERE year = 4")
+            # Then, promote the remaining students (1st, 2nd, 3rd year).
             cur.execute("UPDATE students SET year = year + 1 WHERE year < 4")
         conn.commit()
 
