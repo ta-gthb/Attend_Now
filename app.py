@@ -53,6 +53,13 @@ def db_query(query, params=(), fetchone=False, commit=False):
                 return c.fetchone()
             return c.fetchall()
 
+def to_year_string(year_int):
+    """Converts an integer year to its string representation."""
+    if year_int is None:
+        return ''
+    year_map = {1: "First", 2: "Second", 3: "Third", 4: "Fourth"}
+    return year_map.get(year_int, str(year_int))
+
 
 
 # ---------------- Routes ---------------- #
@@ -125,12 +132,10 @@ def student_login_verify():
 
     active_sessions = []
     for sess in all_sessions_today:
-        # Handle both 'HH:MM' and 'HH:MM:SS' time formats from the database.
-        time_format = "%Y-%m-%d %H:%M"
-        if ':' in sess['start_time'] and sess['start_time'].count(':') == 2:
-            time_format = "%Y-%m-%d %H:%M:%S"
-        # Make the start_time timezone-aware before comparison
-        naive_start_time = datetime.strptime(f"{today} {sess['start_time']}", time_format)
+        # Combine the date and time, then make the combined datetime object timezone-aware.
+        # The 'today' variable is a string in ISO format (e.g., "YYYY-MM-DD").
+        # The `sess['start_time']` is expected to be a `datetime.time` object from the database.
+        naive_start_time = datetime.combine(datetime.fromisoformat(today), sess['start_time'])
         start_time = ist.localize(naive_start_time)
 
         end_time = start_time + timedelta(minutes=sess['time_limit'])
@@ -450,6 +455,10 @@ def teacher_dashboard():
             ''', (tid,))
             sessions = c_select.fetchall()
 
+            # Convert year to string for display
+            for s in sessions:
+                s['year'] = to_year_string(s['year'])
+
     return render_template('teacher_dashboard.html',
                            teacher_name=teacher_name,
                            subjects=subjects,
@@ -478,6 +487,7 @@ def export_session_csv(session_id):
             return "Session not found."
 
         date, year, department, subject_name = session_data
+        year = to_year_string(year)
 
         # Sanitize subject name for use in filename
         safe_subject = re.sub(r'[^A-Za-z0-9]+', '_', subject_name)
@@ -594,6 +604,8 @@ def manage_students():
 
             c.execute(query, tuple(params))
             students = c.fetchall()
+            for s in students:
+                s['year'] = to_year_string(s['year'])
 
     return render_template("manage_students.html",
                            students=students,
