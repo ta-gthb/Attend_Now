@@ -2,6 +2,7 @@
 import os
 import psycopg2
 import psycopg2.extras
+from werkzeug.security import generate_password_hash
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -101,6 +102,13 @@ def init_db():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(schema)
+
+            # Add the default admin user
+            hashed_password = generate_password_hash('Admin@123')
+            cur.execute(
+                "INSERT INTO admins (username, password) VALUES (%s, %s)",
+                ('admin', hashed_password)
+            )
         conn.commit()
 
 # --- You can move other DB utility functions here ---
@@ -146,4 +154,3 @@ def update_student_sign_count(student_pk_id, new_count):
         with conn.cursor() as cur:
             cur.execute("UPDATE students SET sign_count = %s WHERE id = %s", (new_count, student_pk_id))
         conn.commit()
-
