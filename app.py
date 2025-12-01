@@ -959,22 +959,20 @@ def delete_campus(campus_id):
 def delete_student(student_id):
     try:
         with get_connection() as conn:
-            c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            # The 'device_id' column is removed, but we can keep this structure
-            # in case we want to delete other associated data in the future.
-            c.execute("SELECT id FROM students WHERE id = %s", (student_id,))
-            result = c.fetchone()
-
-            if result:
-                # If there were associated files to delete, the logic would go here.
-                # For example: os.remove(f"path/to/files/{student_id}.dat")
-
+            with conn.cursor() as c:
+                # First, delete attendance records associated with the student
+                c.execute("DELETE FROM attendance WHERE student_id = %s", (student_id,))
+                
+                # Then, delete the student
                 c.execute("DELETE FROM students WHERE id = %s", (student_id,))
+                
                 conn.commit()
+        flash("Student and their attendance records have been deleted.", "success")
         return redirect(url_for('manage_students'))
 
     except Exception as e:
-        return f"<h3>❌ Error deleting student: {e}</h3><a href='/admin/dashboard'>🏠 Return to Dashboard</a>"
+        flash(f"Error deleting student: {e}", "error")
+        return redirect(url_for('manage_students'))
 
 @app.route('/admin/edit-campus/<int:campus_id>', methods=['GET', 'POST'])
 def edit_campus(campus_id):
@@ -1005,10 +1003,55 @@ def edit_campus(campus_id):
 def delete_session(sid):
     if 'teacher_id' not in session:
         return redirect('/teacher/login')
-    with get_connection() as conn: # Removed timeout=5 as get_connection does not accept it.
-        with conn.cursor() as c:
-            c.execute("DELETE FROM sessions WHERE id = %s AND teacher_id = %s", (sid, session['teacher_id']))
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                # First, delete attendance records for the session
+                c.execute("DELETE FROM attendance WHERE session_id = %s", (sid,))
+                # Then, delete the session
+                c.execute("DELETE FROM sessions WHERE id = %s AND teacher_id = %s", (sid, session['teacher_id']))
+                conn.commit()
+        flash("Session and all its attendance records have been deleted.", "success")
+    except Exception as e:
+        flash(f"An error occurred: {e}", "error")
     return redirect('/teacher/dashboard')
+
+@app.route('/teacher/delete_sessions_by_year', methods=['POST'])
+def delete_sessions_by_year():
+    if 'teacher_id' not in session:
+        return redirect('/teacher/login')
+
+    year = request.form.get('year')
+    teacher_id = session['teacher_id']
+
+    if not year:
+        flash("Year is required for this operation.", "error")
+        return redirect('/teacher/dashboard')
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                # Find all session IDs for the given teacher and year
+                c.execute("SELECT id FROM sessions WHERE teacher_id = %s AND year = %s", (teacher_id, year))
+                sessions_to_delete = c.fetchall()
+                
+                if sessions_to_delete:
+                    session_ids = [s[0] for s in sessions_to_delete]
+                    
+                    # Delete attendance records for those sessions
+                    # Using a tuple for the IN clause
+                    c.execute("DELETE FROM attendance WHERE session_id IN %s", (tuple(session_ids),))
+
+                    # Delete the sessions themselves
+                    c.execute("DELETE FROM sessions WHERE id IN %s", (tuple(session_ids),))
+
+                conn.commit()
+        flash(f"All sessions for {year} Year have been successfully deleted.", "success")
+    except Exception as e:
+        flash(f"An error occurred while deleting sessions: {e}", "error")
+    
+    return redirect('/teacher/dashboard')
+
 
 @app.cli.command("init-db")
 def init_db_command():
