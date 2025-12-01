@@ -20,6 +20,14 @@
         <a href="/teacher/logout" class="btn btn-danger">Logout</a>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <!-- Create Session -->
     <div class="card p-4 shadow-sm">
         <h4 class="mb-3">➕ Create Attendance Session</h4>
