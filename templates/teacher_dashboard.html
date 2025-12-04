@@ -35,8 +35,8 @@
             <div class="mb-2">
                 <label class="form-label">Subject</label>
                 <select name="subject_id" class="form-select" required>
-                    {% for id, name, code in subjects %}
-                        <option value="{{ id }}">{{ name }} ({{ code }})</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.id }}">{{ subject.subject_name }} ({{ subject.subject_code }})</option>
                     {% endfor %}
                 </select>
             </div>
