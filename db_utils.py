@@ -21,7 +21,7 @@ def init_db():
     """
     # PostgreSQL uses BYTEA for binary data and SERIAL for auto-incrementing integers.
     schema = """
-        DROP TABLE IF EXISTS students, teachers, admins, departments, subjects, sessions, attendance, teacher_department, teacher_subject, campuses CASCADE;
+        DROP TABLE IF EXISTS students, teachers, admins, departments, subjects, sessions, attendance, teacher_department, teacher_subject, campuses, correction_requests CASCADE;
 
         CREATE TABLE departments (
             id SERIAL PRIMARY KEY,
@@ -100,6 +100,14 @@ def init_db():
             name TEXT NOT NULL,
             latitude REAL NOT NULL,
             longitude REAL NOT NULL
+        );
+
+        CREATE TABLE correction_requests (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER REFERENCES students(id),
+            message TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """
     with get_connection() as conn:
@@ -199,3 +207,42 @@ def update_student_sign_count(student_pk_id, new_count):
         with conn.cursor() as cur:
             cur.execute("UPDATE students SET sign_count = %s WHERE id = %s", (new_count, student_pk_id))
         conn.commit()
+
+def create_correction_request(student_id, message):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO correction_requests (student_id, message) VALUES (%s, %s)",
+                (student_id, message)
+            )
+        conn.commit()
+
+def get_all_correction_requests():
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    cr.id,
+                    cr.message,
+                    cr.status,
+                    cr.created_at,
+                    s.name as student_name,
+                    s.student_id
+                FROM
+                    correction_requests cr
+                JOIN
+                    students s ON cr.student_id = s.id
+                ORDER BY
+                    cr.created_at DESC
+            """)
+            return cur.fetchall()
+
+def update_correction_request_status(request_id, status):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE correction_requests SET status = %s WHERE id = %s",
+                (status, request_id)
+            )
+        conn.commit()
+
