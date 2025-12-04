@@ -157,37 +157,38 @@
         document.addEventListener("DOMContentLoaded", () => {
             const subjectSelect = document.querySelector('select[name="subject_id"]');
             const semesterSelect = document.querySelector('select[name="semester"]');
-            const allSubjects = [
+            
+            // This `allSubjects` array is already passed by Flask.
+            // We can directly use it to find the semester for a given subject ID.
+            const allSubjectsData = [
                 {% for subject in subjects %}
-                    { id: {{ subject.id }}, name: "{{ subject.subject_name }}", code: "{{ subject.subject_code }}", semester: "{{ subject.semester }}" },
+                    { id: {{ subject.id | tojson }}, semester: "{{ subject.semester }}" },
                 {% endfor %}
             ];
 
-            function filterSubjects() {
-                const selectedSemester = semesterSelect.value;
-                subjectSelect.innerHTML = ''; // Clear current options
-
-                const filtered = allSubjects.filter(subject => {
-                    return !selectedSemester || subject.semester === selectedSemester;
-                });
-
-                if (filtered.length > 0) {
-                    filtered.forEach(subject => {
-                        const option = document.createElement('option');
-                        option.value = subject.id;
-                        option.textContent = `${subject.name} (${subject.code})`;
-                        subjectSelect.appendChild(option);
-                    });
+            function updateSemesterBasedOnSubject() {
+                const selectedSubjectId = subjectSelect.value;
+                if (selectedSubjectId) {
+                    const subject = allSubjectsData.find(s => String(s.id) === String(selectedSubjectId));
+                    if (subject && subject.semester) {
+                        semesterSelect.value = subject.semester;
+                        semesterSelect.disabled = true; // Disable manual change
+                    } else {
+                        semesterSelect.value = ""; // Clear if no semester found
+                        semesterSelect.disabled = false; // Enable if no semester found
+                    }
                 } else {
-                    const option = document.createElement('option');
-                    option.value = "";
-                    option.textContent = "No subjects for this semester";
-                    subjectSelect.appendChild(option);
+                    semesterSelect.value = ""; // Clear if no subject selected
+                    semesterSelect.disabled = false; // Enable if no subject selected
                 }
             }
 
-            semesterSelect.addEventListener('change', filterSubjects);
-            filterSubjects(); // Initial filter on page load
+            // Initial call to set semester if a subject is pre-selected (e.g., on page load if Flask renders a default)
+            updateSemesterBasedOnSubject();
+
+            // Add event listener for subject change
+            subjectSelect.addEventListener('change', updateSemesterBasedOnSubject);
+
 
             document.querySelectorAll(".generate-qr").forEach(btn => {
                 btn.addEventListener("click", () => {

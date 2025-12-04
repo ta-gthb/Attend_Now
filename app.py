@@ -437,7 +437,8 @@ def generate_qr(session_id):
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
 
     # Generate QR payload
-    expiry = int(time.time()) + 300  # valid 5 minutes
+    # expiry = int(time.time()) + 300  # valid 5 minutes
+    expiry = int(time.time()) + (sess['time_limit'] * 60) # valid for session time_limit in seconds
     qr_payload = {"session_id": session_id, "expiry": expiry}
 
     # Generate QR image
@@ -897,6 +898,17 @@ def delete_subject(subject_id):
             c.execute("DELETE FROM subjects WHERE id = %s", (subject_id,))
             conn.commit()
     return redirect('/admin/add-subject')
+
+@app.route('/get_subject_semester/<int:subject_id>')
+def get_subject_semester(subject_id):
+    conn = get_connection()
+    c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    c.execute("SELECT semester FROM subjects WHERE id = %s", (subject_id,))
+    result = c.fetchone()
+    conn.close()
+    if result:
+        return jsonify({"semester": result['semester']})
+    return jsonify({"semester": None}), 404
 
 @app.route('/admin/update-teacher/<int:teacher_id>', methods=['POST'])
 def update_teacher_department(teacher_id):
