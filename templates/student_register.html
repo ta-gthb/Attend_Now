@@ -15,6 +15,14 @@ body { background:#f8f9fa; }
 <div class="card shadow-sm">
 <h3 class="mb-3">🎓 Student Registration</h3>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
 <p class="small-muted">
 Register your student account and secure it with a passkey (e.g., security key, fingerprint, or face scan).
 </p>
