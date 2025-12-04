@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Performance</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Attendance Performance</h1>
+        {% if analytics %}
+            <table class="performance-table">
+                <thead>
+                    <tr>
+                        <th>Subject Name</th>
+                        <th>Subject Code</th>
+                        <th>Attended Sessions</th>
+                        <th>Total Sessions</th>
+                        <th>Attendance (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in analytics %}
+                        <tr>
+                            <td>{{ subject.subject_name }}</td>
+                            <td>{{ subject.subject_code }}</td>
+                            <td>{{ subject.attended_sessions }}</td>
+                            <td>{{ subject.total_sessions }}</td>
+                            <td>
+                                {% if subject.total_sessions > 0 %}
+                                    {{ "%.2f" % ( (subject.attended_sessions / subject.total_sessions) * 100 ) }}%
+                                {% else %}
+                                    0.00%
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No attendance data available yet.</p>
+        {% endif %}
+        <a href="{{ url_for('student_dashboard') }}" class="button">Back to Dashboard</a>
+    </div>
+</body>
+</html>

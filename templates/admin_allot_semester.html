@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Allot Semester to Students</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .semester-allotment-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <h2>🗓️ Allot Semester to Students</h2>
+        <a href="/admin/manage-students" class="btn btn-secondary mb-3">⬅️ Back to Manage Students</a>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Filter Section -->
+        <form method="GET" class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label">Filter by Department</label>
+                <select name="department" class="form-select">
+                    <option value="">All</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.name }}" {% if selected_dept == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Filter by Year</label>
+                <select name="year" class="form-select">
+                    <option value="">All</option>
+                    <option value="First" {% if selected_year == 'First' %}selected{% endif %}>First</option>
+                    <option value="Second" {% if selected_year == 'Second' %}selected{% endif %}>Second</option>
+                    <option value="Third" {% if selected_year == 'Third' %}selected{% endif %}>Third</option>
+                    <option value="Fourth" {% if selected_year == 'Fourth' %}selected{% endif %}>Fourth</option>
+                </select>
+            </div>
+
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+            </div>
+        </form>
+
+        <form method="POST" action="{{ url_for('admin_allot_semester') }}">
+            <div class="semester-allotment-controls">
+                <label for="semester_to_allot" class="form-label mb-0">Allot Selected to Semester:</label>
+                <select name="semester_to_allot" id="semester_to_allot" class="form-select w-auto">
+                    <option value="">--Select Semester--</option>
+                    {% for sem in all_semesters %}
+                    <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-success">Allot Semester</button>
+            </div>
+
+            <div class="card p-4">
+                <h4>Filtered Students</h4>
+                <table class="table table-bordered table-striped align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th><input type="checkbox" id="select_all_students"></th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Year</th>
+                            <th>Current Semester</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_students" value="{{ student.id }}"></td>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.department }}</td>
+                            <td>{{ student.year }}</td>
+                            <td>{{ student.semester or 'N/A' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5">No students found matching the criteria.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('select_all_students').addEventListener('change', function(e) {
+            const checkboxes = document.querySelectorAll('input[name="selected_students"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+        });
+    </script>
+</body>
+</html>

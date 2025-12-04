@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Student Profile</h1>
+        <div class="profile-details">
+            <p><strong>Name:</strong> {{ student.name }}</p>
+            <p><strong>Department:</strong> {{ student.department }}</p>
+            <p><strong>Student ID:</strong> {{ student.student_id }}</p>
+            <p><strong>Roll No:</strong> {{ student.roll_no }}</p>
+            <p><strong>Email:</strong> {{ student.email }}</p>
+            <p><strong>Year:</strong> {{ student.year }}</p>
+            <p><strong>Semester:</strong> {{ student.semester or 'Not Assigned' }}</p>
+        </div>
+        <a href="{{ url_for('student_dashboard') }}" class="button">Back to Dashboard</a>
+    </div>
+</body>
+</html>

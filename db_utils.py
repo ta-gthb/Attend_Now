@@ -31,7 +31,8 @@ def init_db():
         CREATE TABLE subjects (
             id SERIAL PRIMARY KEY,
             subject_name TEXT NOT NULL,
-            subject_code TEXT UNIQUE NOT NULL
+            subject_code TEXT UNIQUE NOT NULL,
+            semester TEXT
         );
 
         CREATE TABLE students (
@@ -42,6 +43,7 @@ def init_db():
             roll_no TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             year TEXT NOT NULL,
+            semester TEXT,
             credential_id BYTEA UNIQUE,
             public_key BYTEA,
             sign_count INTEGER,
@@ -68,7 +70,8 @@ def init_db():
             start_time TIME NOT NULL,
             time_limit INTEGER NOT NULL,
             year TEXT NOT NULL,
-            department TEXT REFERENCES departments(name)
+            department TEXT REFERENCES departments(name),
+            semester TEXT
         );
 
         CREATE TABLE attendance (
@@ -152,6 +155,44 @@ def get_student_by_student_id(student_id):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             cur.execute("SELECT * FROM students WHERE student_id = %s", (student_id,))
             return cur.fetchone()
+
+def get_student_attendance_analytics(student_id):
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    sub.subject_name,
+                    sub.subject_code,
+                    COUNT(DISTINCT sess.id) AS total_sessions,
+                    COUNT(att.id) AS attended_sessions
+                FROM
+                    sessions sess
+                JOIN
+                    subjects sub ON sess.subject_id = sub.id
+                LEFT JOIN
+                    attendance att ON sess.id = att.session_id AND att.student_id = %s
+                WHERE
+                    -- Optionally filter by student's department/year/semester if desired for a more specific view
+                    -- For now, let's assume all sessions student *could* have attended
+                    TRUE
+                GROUP BY
+                    sub.subject_name, sub.subject_code
+                ORDER BY
+                    sub.subject_name
+            """, (student_id,))
+            return cur.fetchall()
+
+def get_student_by_id(student_pk_id):
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT * FROM students WHERE id = %s", (student_pk_id,))
+            return cur.fetchone()
+
+def update_student_semester(student_id, semester):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE students SET semester = %s WHERE id = %s", (semester, student_id))
+        conn.commit()
 
 def update_student_sign_count(student_pk_id, new_count):
     with get_connection() as conn:

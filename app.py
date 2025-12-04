@@ -14,7 +14,8 @@ import csv
 import re
 import pytz
 from db_utils import (init_db, get_connection, get_all_departments, add_department,
-                      delete_department, promote_students, get_student_by_student_id, update_student_sign_count)
+                      delete_department, promote_students, get_student_by_student_id, update_student_sign_count,
+                      get_student_by_id, get_student_attendance_analytics, update_student_semester)
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
@@ -107,46 +108,69 @@ def student_login_verify():
     session["student_id"] = student["id"]
     session["student_name"] = student["name"]
 
+    return redirect(url_for("student_dashboard"))
+
     # Check for active sessions before redirecting
-    # Use a specific timezone (e.g., IST) to avoid server/client time mismatches.
-    ist = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(ist)
-    today = now.date().isoformat()
-    student_dept = student["department"]
-    student_year = student["year"]
+    # # Use a specific timezone (e.g., IST) to avoid server/client time mismatches.
+    # ist = pytz.timezone('Asia/Kolkata')
+    # now = datetime.now(ist)
+    # today = now.date().isoformat()
+    # student_dept = student["department"]
+    # student_year = student["year"]
 
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
-            c.execute("""
-            SELECT s.id, s.start_time, s.time_limit, sub.subject_name
-            FROM sessions s
-            JOIN subjects sub ON s.subject_id = sub.id
-            WHERE s.date = %s AND s.department = %s AND s.year = %s
-            """, (today, student_dept, student_year))
-            all_sessions_today = c.fetchall()
+    # with get_connection() as conn:
+    #     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+    #         c.execute("""
+    #         SELECT s.id, s.start_time, s.time_limit, sub.subject_name
+    #         FROM sessions s
+    #         JOIN subjects sub ON s.subject_id = sub.id
+    #         WHERE s.date = %s AND s.department = %s AND s.year = %s
+    #         """, (today, student_dept, student_year))
+    #         all_sessions_today = c.fetchall()
 
-    active_sessions = []
-    for sess in all_sessions_today:
-        # Combine the date and time, then make the combined datetime object timezone-aware.
-        # The 'today' variable is a string in ISO format (e.g., "YYYY-MM-DD").
-        # The `sess['start_time']` is expected to be a `datetime.time` object from the database.
-        naive_start_time = datetime.combine(datetime.fromisoformat(today), sess['start_time'])
-        start_time = ist.localize(naive_start_time)
+    # active_sessions = []
+    # for sess in all_sessions_today:
+    #     # Combine the date and time, then make the combined datetime object timezone-aware.
+    #     # The 'today' variable is a string in ISO format (e.g., "YYYY-MM-DD").
+    #     # The `sess['start_time']` is expected to be a `datetime.time` object from the database.
+    #     naive_start_time = datetime.combine(datetime.fromisoformat(today), sess['start_time'])
+    #     start_time = ist.localize(naive_start_time)
 
-        end_time = start_time + timedelta(minutes=sess['time_limit'])
+    #     end_time = start_time + timedelta(minutes=sess['time_limit'])
 
-        if start_time <= now <= end_time:
-            active_sessions.append(sess)
+    #     if start_time <= now <= end_time:
+    #         active_sessions.append(sess)
 
-    if len(active_sessions) == 1:
-        # If only one session is active, redirect straight to the scanner.
-        return redirect(url_for("student_scan_qr", session_id=active_sessions[0]['id']))
-    elif len(active_sessions) > 1:
-        # If multiple sessions are active, let the student choose.
-        return render_template("choose_session.html", active_sessions=active_sessions, student_name=session["student_name"])
-    else:
-        # If no sessions are active, show the info page.
-        return render_template("no_active_session.html", student_name=session["student_name"])
+    # if len(active_sessions) == 1:
+    #     # If only one session is active, redirect straight to the scanner.
+    #     return redirect(url_for("student_scan_qr", session_id=active_sessions[0]['id']))
+    # elif len(active_sessions) > 1:
+    #     # If multiple sessions are active, let the student choose.
+    #     return render_template("choose_session.html", active_sessions=active_sessions, student_name=session["student_name"])
+    # else:
+    #     # If no sessions are active, show the info page.
+    #     return render_template("no_active_session.html", student_name=session["student_name"])
+
+
+@app.route('/student/dashboard')
+def student_dashboard():
+    if "student_id" not in session:
+        return redirect(url_for("student_login"))
+    return render_template("student_dashboard.html", student_name=session["student_name"])
+
+@app.route('/student/profile')
+def student_profile():
+    if "student_id" not in session:
+        return redirect(url_for("student_login"))
+    
+    student_id = session["student_id"]
+    student = get_student_by_id(student_id) # Use the new function
+
+    if not student:
+        flash("Student profile not found.", "error")
+        return redirect(url_for("student_dashboard"))
+
+    return render_template("student_profile.html", student=student)
 
 
 @app.route("/student/scan-qr/<int:session_id>")
@@ -178,6 +202,19 @@ def mark_attendance():
         now = datetime.now(ist)
         with get_connection() as conn:
             with conn.cursor() as c:
+                # Get student's semester
+                c.execute("SELECT semester FROM students WHERE id = %s", (session['student_id'],))
+                student_semester_row = c.fetchone()
+                student_semester = student_semester_row[0] if student_semester_row else None
+
+                # Get session's semester
+                c.execute("SELECT semester FROM sessions WHERE id = %s", (session_id,))
+                session_semester_row = c.fetchone()
+                session_semester = session_semester_row[0] if session_semester_row else None
+
+                if not student_semester or not session_semester or student_semester != session_semester:
+                    return "You can only mark attendance for sessions in your assigned semester.", 403
+
                 # Check if already marked
                 c.execute("SELECT id FROM attendance WHERE student_id = %s AND session_id = %s", (session['student_id'], session_id))
                 if c.fetchone():
@@ -390,6 +427,7 @@ def teacher_dashboard():
 
     tid = session['teacher_id']
     teacher_name = session['teacher_name']
+    all_semesters = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
@@ -397,9 +435,9 @@ def teacher_dashboard():
             c.execute("SELECT department FROM teacher_department WHERE teacher_id = %s", (tid,))
             departments = [row['department'] for row in c.fetchall()]
 
-            # Fetch subjects assigned to this teacher
+            # Fetch subjects assigned to this teacher, now also including semester
             c.execute('''
-                SELECT s.id, s.subject_name, s.subject_code
+                SELECT s.id, s.subject_name, s.subject_code, s.semester
                 FROM subjects s
                 JOIN teacher_subject ts ON s.id = ts.subject_id
                 WHERE ts.teacher_id = %s
@@ -415,6 +453,7 @@ def teacher_dashboard():
                 time_limit = int(request.form['time_limit'])
                 year = request.form['year']
                 department = request.form['department']
+                semester = request.form['semester'] # Get semester from form
 
                 if department not in departments:
                     return "❌ You are not authorized to create sessions for this department.", 403
@@ -422,9 +461,9 @@ def teacher_dashboard():
                 with conn.cursor() as c_insert:
                     c_insert.execute('''
                         INSERT INTO sessions
-                        (teacher_id, subject_id, date, start_time, time_limit, year, department)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ''', (tid, subject_id, date, start_time, time_limit, year, department))
+                        (teacher_id, subject_id, date, start_time, time_limit, year, department, semester)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (tid, subject_id, date, start_time, time_limit, year, department, semester))
                     conn.commit()
 
             except Exception as e:
@@ -433,7 +472,7 @@ def teacher_dashboard():
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c_select:
             c_select.execute('''
             SELECT sessions.id, subjects.subject_name, sessions.date, sessions.start_time,
-                   sessions.time_limit, sessions.year, sessions.department
+                   sessions.time_limit, sessions.year, sessions.department, sessions.semester
             FROM sessions
             JOIN subjects ON sessions.subject_id = subjects.id
             WHERE sessions.teacher_id = %s
@@ -441,13 +480,12 @@ def teacher_dashboard():
             ''', (tid,))
             sessions = c_select.fetchall()
 
-
-
     return render_template('teacher_dashboard.html',
                            teacher_name=teacher_name,
                            subjects=subjects,
                            departments=departments,
-                           sessions=sessions)
+                           sessions=sessions,
+                           all_semesters=all_semesters)
 
 
 # ✅ Export Attendance CSV
@@ -531,6 +569,53 @@ def admin_dashboard():
     return render_template('admin_dashboard.html',
                            student_count=student_count,
                            today_sessions=today_sessions)
+
+@app.route('/admin/allot-semester', methods=['GET', 'POST'])
+def admin_allot_semester():
+    if 'admin_id' not in session:
+        return redirect('/')
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            departments = get_all_departments()
+            all_semesters = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"] # Define all possible semesters
+
+            if request.method == 'POST':
+                student_ids = request.form.getlist('selected_students')
+                semester_to_allot = request.form.get('semester_to_allot')
+                
+                if student_ids and semester_to_allot:
+                    for student_id in student_ids:
+                        update_student_semester(int(student_id), semester_to_allot)
+                    flash(f"Semester '{semester_to_allot}' allotted to selected students.", "success")
+                else:
+                    flash("No students selected or semester not specified.", "error")
+                return redirect(url_for('admin_allot_semester')) # Redirect to GET to clear form
+
+            # GET request or initial load
+            year_filter = request.args.get('year')
+            dept_filter = request.args.get('department')
+
+            query = "SELECT id, name, department, year, semester FROM students WHERE 1=1"
+            params = []
+
+            if year_filter:
+                query += " AND year = %s"
+                params.append(year_filter)
+            if dept_filter:
+                query += " AND department = %s"
+                params.append(dept_filter)
+
+            c.execute(query, tuple(params))
+            students = c.fetchall()
+
+    return render_template('admin_allot_semester.html', 
+                           departments=departments, 
+                           students=students, 
+                           selected_year=year_filter, 
+                           selected_dept=dept_filter,
+                           all_semesters=all_semesters)
+
 
 @app.route('/admin/edit-student/<int:student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
@@ -710,25 +795,27 @@ def add_subject():
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
 
             edit_subject = None
+            all_semesters = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"] # Define all possible semesters
 
             if request.method == 'POST':
                 subject_id = request.form.get('subject_id')
                 name = request.form.get('subject_name')
                 code = request.form.get('subject_code')
+                semester = request.form.get('semester')
 
                 if subject_id:  # Update
-                    c.execute("UPDATE subjects SET subject_name = %s, subject_code = %s WHERE id = %s", (name, code, subject_id))
+                    c.execute("UPDATE subjects SET subject_name = %s, subject_code = %s, semester = %s WHERE id = %s", (name, code, semester, subject_id))
                 else:  # Add
                     try:
-                        c.execute("INSERT INTO subjects (subject_name, subject_code) VALUES (%s, %s)", (name, code))
+                        c.execute("INSERT INTO subjects (subject_name, subject_code, semester) VALUES (%s, %s, %s)", (name, code, semester))
                     except psycopg2.IntegrityError:
                         return "❌ Subject code already exists!"
 
                 conn.commit()
 
-            c.execute("SELECT id, subject_name, subject_code FROM subjects")
+            c.execute("SELECT id, subject_name, subject_code, semester FROM subjects")
             subjects = c.fetchall()
-    return render_template("add_subject.html", subjects=subjects, edit_subject=edit_subject)
+    return render_template("add_subject.html", subjects=subjects, edit_subject=edit_subject, all_semesters=all_semesters)
 
 
 @app.route('/admin/edit-subject/<int:subject_id>')
@@ -738,14 +825,15 @@ def edit_subject(subject_id):
 
     with get_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
-            c.execute("SELECT id, subject_name, subject_code FROM subjects WHERE id = %s", (subject_id,))
+            c.execute("SELECT id, subject_name, subject_code, semester FROM subjects WHERE id = %s", (subject_id,))
             subject = c.fetchone()
-            c.execute("SELECT id, subject_name, subject_code FROM subjects")
+            c.execute("SELECT id, subject_name, subject_code, semester FROM subjects")
             subjects = c.fetchall()
+            all_semesters = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"]
 
     if subject:
-        subject_dict = {'id': subject['id'], 'subject_name': subject['subject_name'], 'subject_code': subject['subject_code']}
-        return render_template("add_subject.html", subjects=subjects, edit_subject=subject_dict)
+        subject_dict = {'id': subject['id'], 'subject_name': subject['subject_name'], 'subject_code': subject['subject_code'], 'semester': subject['semester']}
+        return render_template("add_subject.html", subjects=subjects, edit_subject=subject_dict, all_semesters=all_semesters)
     else:
         return redirect('/admin/add-subject')
 
@@ -887,10 +975,22 @@ def teacher_logout():
 
 
 
+@app.route('/student/performance')
+def student_performance():
+    if "student_id" not in session:
+        return redirect(url_for("student_login"))
+    
+    student_id = session["student_id"]
+    analytics = get_student_attendance_analytics(student_id)
+
+    return render_template("student_performance.html", analytics=analytics)
+
+
 @app.route('/student/logout')
 def student_logout():
     session.pop('student_id', None)
-    return redirect('/student/login')
+    session.pop('student_name', None) # Also remove student_name from session
+    return redirect('/')
 
 
 # ✅ Delete Teacher

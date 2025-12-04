@@ -76,6 +76,16 @@
                 </select>
             </div>
 
+            <div class="mb-3">
+                <label class="form-label">Semester</label>
+                <select name="semester" class="form-select" required>
+                    <option value="">Select Semester</option>
+                    {% for sem in all_semesters %}
+                        <option value="{{ sem }}">{{ sem }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <button type="submit" class="btn btn-primary">✅ Create Session</button>
         </form>
     </div>
@@ -85,11 +95,11 @@
         <h4>📅 Your Class Sessions</h4>
 
         {% set year_sessions = {} %}
-        {% for sid, subject, date, time, limit, year, department in sessions %}
+        {% for sid, subject, date, time, limit, year, department, semester in sessions %}
             {% if year not in year_sessions %}
                 {% set _ = year_sessions.update({year: []}) %}
             {% endif %}
-            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department)) %}
+            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department, semester)) %}
         {% endfor %}
 
         {% for year, session_list in year_sessions.items() %}
@@ -107,6 +117,7 @@
                             <th>Subject</th>
                             <th>Date</th>
                             <th>Department</th>
+                            <th>Semester</th>
                             <th>Start Time</th>
                             <th>Duration</th>
                             <th>Actions</th>
@@ -114,11 +125,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for sid, subject, date, time, limit, department in session_list %}
+                        {% for sid, subject, date, time, limit, department, semester in session_list %}
                         <tr>
                             <td>{{ subject }}</td>
                             <td>{{ date }}</td>
                             <td>{{ department }}</td>
+                            <td>{{ semester }}</td>
                             <td>{{ time }}</td>
                             <td>{{ limit }} min</td>
                             <td>
@@ -141,31 +153,65 @@
     </div>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll(".generate-qr").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const sid = btn.dataset.session;
-            const expiry = Math.floor(Date.now() / 1000) + 300; // 5 minutes
-            const payload = { session_id: sid, expiry: expiry };
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const subjectSelect = document.querySelector('select[name="subject_id"]');
+            const semesterSelect = document.querySelector('select[name="semester"]');
+            const allSubjects = [
+                {% for subject in subjects %}
+                    { id: {{ subject.id }}, name: "{{ subject.subject_name }}", code: "{{ subject.subject_code }}", semester: "{{ subject.semester }}" },
+                {% endfor %}
+            ];
 
-            const qrDiv = document.getElementById("qr-" + sid);
-            qrDiv.innerHTML = ""; // clear old QR
-            QRCode.toCanvas(JSON.stringify(payload), { width: 140 }, (err, canvas) => {
-                if (err) {
-                    console.error(err);
-                    alert("Failed to generate QR code.");
+            function filterSubjects() {
+                const selectedSemester = semesterSelect.value;
+                subjectSelect.innerHTML = ''; // Clear current options
+
+                const filtered = allSubjects.filter(subject => {
+                    return !selectedSemester || subject.semester === selectedSemester;
+                });
+
+                if (filtered.length > 0) {
+                    filtered.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject.id;
+                        option.textContent = `${subject.name} (${subject.code})`;
+                        subjectSelect.appendChild(option);
+                    });
                 } else {
-                    canvas.classList.add("qr-canvas");
-                    qrDiv.appendChild(canvas);
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No subjects for this semester";
+                    subjectSelect.appendChild(option);
                 }
-            });
+            }
 
-            const expiryText = new Date(expiry * 1000).toLocaleTimeString();
-            document.getElementById("expiry-" + sid).textContent = "⏳ Valid until " + expiryText;
+            semesterSelect.addEventListener('change', filterSubjects);
+            filterSubjects(); // Initial filter on page load
+
+            document.querySelectorAll(".generate-qr").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const sid = btn.dataset.session;
+                    const expiry = Math.floor(Date.now() / 1000) + 300; // 5 minutes
+                    const payload = { session_id: sid, expiry: expiry };
+
+                    const qrDiv = document.getElementById("qr-" + sid);
+                    qrDiv.innerHTML = ""; // clear old QR
+                    QRCode.toCanvas(JSON.stringify(payload), { width: 140 }, (err, canvas) => {
+                        if (err) {
+                            console.error(err);
+                            alert("Failed to generate QR code.");
+                        } else {
+                            canvas.classList.add("qr-canvas");
+                            qrDiv.appendChild(canvas);
+                        }
+                    });
+
+                    const expiryText = new Date(expiry * 1000).toLocaleTimeString();
+                    document.getElementById("expiry-" + sid).textContent = "⏳ Valid until " + expiryText;
+                });
+            });
         });
-    });
-});
-</script>
+    </script>
 </body>
 </html>

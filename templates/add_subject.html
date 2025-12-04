@@ -22,6 +22,15 @@
       <label class="form-label">Subject Code</label>
       <input type="text" name="subject_code" class="form-control" value="{{ edit_subject.subject_code if edit_subject }}" required>
     </div>
+    <div class="mb-3">
+        <label class="form-label">Semester</label>
+        <select name="semester" class="form-select" required>
+            <option value="">-- Select Semester --</option>
+            {% for sem in all_semesters %}
+                <option value="{{ sem }}" {% if edit_subject and edit_subject.semester == sem %}selected{% endif %}>{{ sem }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">
       {{ "Update Subject" if edit_subject else "Add Subject" }}
     </button>
@@ -36,14 +45,16 @@
         <tr>
           <th>Subject Name</th>
           <th>Subject Code</th>
+          <th>Semester</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {% for id, name, code in subjects %}
+        {% for id, name, code, semester in subjects %}
         <tr>
           <td>{{ name }}</td>
           <td>{{ code }}</td>
+          <td>{{ semester }}</td>
           <td>
             <a href="/admin/edit-subject/{{ id }}" class="btn btn-warning btn-sm">✏️ Edit</a>
             <a href="/admin/delete-subject/{{ id }}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure to delete this subject?')">🗑️ Delete</a>
