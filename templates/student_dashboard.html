@@ -11,9 +11,9 @@
         <h1>Welcome, Student!</h1>
         <div class="dashboard-options">
             <a href="{{ url_for('student_profile') }}" class="button">Profile</a>
-            <a href="{{ url_for('student_scan_qr') }}" class="button">Mark Attendance</a>
+    <a href="{{ url_for('choose_session') }}" class="button">Mark Attendance</a>
             <a href="{{ url_for('student_performance') }}" class="button">Performance</a>
-            <a href="{{ url_for('logout') }}" class="button">Logout</a>
+            <a href="{{ url_for('student_logout') }}" class="button">Logout</a>
         </div>
     </div>
 </body>

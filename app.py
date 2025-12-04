@@ -158,6 +158,54 @@ def student_dashboard():
         return redirect(url_for("student_login"))
     return render_template("student_dashboard.html", student_name=session["student_name"])
 
+
+@app.route('/student/choose-session')
+def choose_session():
+    if "student_id" not in session:
+        return redirect(url_for("student_login"))
+
+    student = get_student_by_id(session["student_id"])
+    if not student:
+        flash("Student not found.", "error")
+        return redirect(url_for("student_login"))
+
+    # Use a specific timezone (e.g., IST) to avoid server/client time mismatches.
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
+    today = now.date()
+
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
+            c.execute("""
+                SELECT s.id, s.start_time, s.time_limit, sub.subject_name
+                FROM sessions s
+                JOIN subjects sub ON s.subject_id = sub.id
+                WHERE s.date = %s AND s.semester = %s
+            """, (today, student["semester"]))
+            all_sessions_today = c.fetchall()
+
+    active_sessions = []
+    for sess in all_sessions_today:
+        # Combine the date and time, then make the combined datetime object timezone-aware.
+        naive_start_time = datetime.combine(today, sess['start_time'])
+        start_time = ist.localize(naive_start_time)
+        end_time = start_time + timedelta(minutes=sess['time_limit'])
+
+        if start_time <= now <= end_time:
+            active_sessions.append(sess)
+
+    if len(active_sessions) == 1:
+        # If only one session is active, redirect straight to the scanner.
+        return redirect(url_for("student_scan_qr", session_id=active_sessions[0]['id']))
+    elif len(active_sessions) > 1:
+        # If multiple sessions are active, let the student choose.
+        return render_template("choose_session.html", active_sessions=active_sessions, student_name=session["student_name"])
+    else:
+        # If no sessions are active, show the info page.
+        return render_template("no_active_session.html", student_name=session["student_name"])
+
+
+
 @app.route('/student/profile')
 def student_profile():
     if "student_id" not in session:
