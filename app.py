@@ -232,12 +232,11 @@ def student_scan_qr(session_id):
 @app.route('/student/mark-attendance', methods=['POST'])
 def mark_attendance():
     if "student_id" not in session:
-        return "Not logged in", 401
+        return render_template("notification.html", message="Not logged in")
 
     qr_data_str = request.form.get('qr_data')
-    print(f"DEBUG: Mark Attendance - Raw qr_data_str received: {qr_data_str}")
     if not qr_data_str:
-        return "No QR data received", 400
+        return render_template("notification.html", message="No QR data received")
 
     try:
         qr_data = json.loads(qr_data_str)
@@ -245,39 +244,34 @@ def mark_attendance():
         expiry = qr_data.get("expiry")
 
         now_timestamp = int(time.time())
-        print(f"DEBUG: Mark Attendance - Received session_id: {session_id}, Expiry from QR: {expiry}, Current UTC timestamp: {now_timestamp}")
 
         if not session_id or not expiry or now_timestamp > expiry:
-            print(f"DEBUG: QR Validation Failed: session_id={session_id}, expiry={expiry}, now_timestamp={now_timestamp}")
-            return "Invalid or expired QR code.", 400
+            return render_template("notification.html", message="Invalid or expired QR code.")
 
-        # Use a specific timezone (e.g., IST) to ensure consistent time recording.
         ist = pytz.timezone('Asia/Kolkata')
         now = datetime.now(ist)
         with get_connection() as conn:
             with conn.cursor() as c:
-                # Get student's semester
                 c.execute("SELECT semester FROM students WHERE id = %s", (session['student_id'],))
                 student_semester_row = c.fetchone()
                 student_semester = student_semester_row[0] if student_semester_row else None
 
-                # Get session's semester
                 c.execute("SELECT semester FROM sessions WHERE id = %s", (session_id,))
                 session_semester_row = c.fetchone()
                 session_semester = session_semester_row[0] if session_semester_row else None
 
                 if not student_semester or not session_semester or student_semester != session_semester:
-                    return "You can only mark attendance for sessions in your assigned semester.", 403
+                    return render_template("notification.html", message="You can only mark attendance for sessions in your assigned semester.")
 
-                # Check if already marked
                 c.execute("SELECT id FROM attendance WHERE student_id = %s AND session_id = %s", (session['student_id'], session_id))
                 if c.fetchone():
-                    return "You have already marked attendance for this session.", 200
+                    return render_template("notification.html", message="You have already marked attendance for this session.")
+                
                 c.execute("INSERT INTO attendance (student_id, session_id, date, time) VALUES (%s, %s, %s, %s)",
                             (session['student_id'], session_id, now.date().isoformat(), now.time().strftime('%H:%M:%S')))
-        return "✅ Attendance marked successfully!", 200
+        return render_template("notification.html", message="✅ Attendance marked successfully!")
     except (json.JSONDecodeError, Exception) as e:
-        return f"Error processing QR data: {e}", 400
+        return render_template("notification.html", message=f"Error processing QR data: {e}")
 
 
 # ---------------- Student Registration ---------------- #
