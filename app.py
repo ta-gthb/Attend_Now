@@ -244,8 +244,10 @@ def mark_attendance():
         expiry = qr_data.get("expiry")
 
         now_timestamp = int(time.time())
+        print(f"DEBUG: Mark Attendance - Received session_id: {session_id}, Expiry from QR: {expiry}, Current UTC timestamp: {now_timestamp}")
 
         if not session_id or not expiry or now_timestamp > expiry:
+            print(f"DEBUG: QR Validation Failed: session_id={session_id}, expiry={expiry}, now_timestamp={now_timestamp}")
             return "Invalid or expired QR code.", 400
 
         # Use a specific timezone (e.g., IST) to ensure consistent time recording.
@@ -440,7 +442,10 @@ def generate_qr(session_id):
 
     # Generate QR payload
     # Use a specific timezone (e.g., IST) to ensure consistent time recording.
+    print(f"DEBUG: Generating QR for session_id: {session_id}")
+    print(f"DEBUG: Session time_limit: {sess['time_limit']} minutes")
     expiry = int(time.time()) + (sess['time_limit'] * 60) # valid for session time_limit in seconds
+    print(f"DEBUG: QR Expiry timestamp (UTC): {expiry}")
     qr_payload = {"session_id": session_id, "expiry": expiry}
 
     # Generate QR image
