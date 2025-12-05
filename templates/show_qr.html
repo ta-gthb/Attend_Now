@@ -8,7 +8,7 @@
 <body class="bg-light text-center py-5">
   <h2>📘 Session QR Code</h2>
   <p>Session ID: {{ session_id }}</p>
-  <p>⏳ Valid until: <strong>{{ expiry | int | datetime.fromtimestamp }}</strong></p>
+  <p>⏳ Valid until: <strong>{{ expiry_time.strftime('%Y-%m-%d %H:%M:%S %Z') }}</strong></p>
 
   <img src="data:image/png;base64,{{ qr_code }}" class="img-fluid" alt="QR Code">
 

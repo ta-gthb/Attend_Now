@@ -425,19 +425,23 @@ def student_login_options():
 
     return jsonify(options)
 
-@app.route('/teacher/generate-qr/<int:session_id>')
-def generate_qr(session_id):
-    # Check if teacher owns this session
-    teacher_id = session.get("teacher_id")
-    if not teacher_id:
-        return redirect("/teacher/login")
+@app.route('/generate-qr/<int:session_id>')
+def generate_qr_code(session_id):
+    if "teacher_id" not in session:
+        return "Not authorized", 403
 
     with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
-            c.execute("SELECT id, subject_id, date, start_time, time_limit FROM sessions WHERE id = %s AND teacher_id = %s",
-                      (session_id, teacher_id))
+        with conn.cursor(dictionary=True) as c:
+            # Check if teacher is authorized for this session
+            c.execute("""
+                SELECT s.*, sub.name as subject_name 
+                FROM sessions s 
+                JOIN subjects sub ON s.subject_id = sub.id
+                JOIN teacher_subjects ts ON sub.id = ts.subject_id
+                WHERE s.id = %s AND ts.teacher_id = %s
+            """, (session_id, session.get("teacher_id")))
             sess = c.fetchone()
-
+    
     if not sess:
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
 
@@ -462,7 +466,7 @@ def generate_qr(session_id):
     
     expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
     print(f"DEBUG: Calculated QR Expiry timestamp (UTC): {expiry}")
-    qr_payload = {"session_id": session_id, "expiry": expiry}
+    qr_payload = {"session_id": str(session_id), "expiry": expiry}
     print(f"DEBUG: QR Payload before encoding: {qr_payload}")
 
     # Generate QR image
@@ -470,8 +474,13 @@ def generate_qr(session_id):
     buf = io.BytesIO()
     qr_img.save(buf, format="PNG")
     qr_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    
+    # Get a timezone-aware object for display
+    display_expiry_time = datetime.fromtimestamp(expiry, tz=pytz.timezone('Asia/Kolkata'))
 
-    return render_template("show_qr.html", session_id=session_id, qr_code=qr_b64, expiry=expiry)
+    return render_template("show_qr.html", session_id=session_id, qr_code=qr_b64, expiry_time=display_expiry_time)
+
+
 
 # ✅ Teacher Login
 @app.route('/teacher/login-inline', methods=['POST'])

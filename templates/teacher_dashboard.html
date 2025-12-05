@@ -138,17 +138,10 @@
                                 <a href="/teacher/session/{{ sid }}/delete" class="btn btn-sm btn-danger ms-1">🗑️ Delete</a>
                             </td>
                             <td class="text-center">
-                                <button class="btn btn-sm btn-primary generate-qr"
-                                        data-session="{{ sid }}"
-                                        data-date="{{ date }}"
-                                        data-start-time="{{ time }}"
-                                        data-time-limit="{{ limit }}">
+                                <a href="/generate-qr/{{ sid }}" target="_blank" class="btn btn-sm btn-primary">
                                     📷 Generate QR
-                                </button>
-                                <div id="qr-{{ sid }}" class="mt-2"></div>
-                                <small class="text-muted d-block" id="expiry-{{ sid }}"></small>
-                            </td>
-                        </tr>
+                                </a>
+                            </td>                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -192,68 +185,6 @@
 
             // Add event listener for subject change
             subjectSelect.addEventListener('change', updateSemesterBasedOnSubject);
-
-            // Function to check and disable expired sessions
-            function checkAndDisableExpiredSessions() {
-                const now = new Date(); // Current time
-
-                document.querySelectorAll(".generate-qr").forEach(btn => {
-                    const sessionDate = btn.dataset.date;
-                    const startTime = btn.dataset.startTime;
-                    const timeLimit = parseInt(btn.dataset.timeLimit);
-
-                    const sessionStartDateTime = new Date(`${sessionDate}T${startTime}:00`);
-                    const sessionEndDateTime = new Date(sessionStartDateTime.getTime() + (timeLimit * 60 * 1000));
-
-                    if (sessionEndDateTime < now) {
-                        btn.disabled = true;
-                        btn.textContent = "Session Expired";
-                        btn.classList.remove('btn-primary');
-                        btn.classList.add('btn-secondary');
-                    }
-                });
-            }
-
-            // Call the function on page load
-            checkAndDisableExpiredSessions();
-
-            // Optional: Re-check periodically if sessions can expire while page is open
-            // setInterval(checkAndDisableExpiredSessions, 60 * 1000); // Check every minute
-
-
-            document.querySelectorAll(".generate-qr").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const sid = btn.dataset.session;
-                    const sessionDate = btn.dataset.date;
-                    const startTime = btn.dataset.startTime;
-                    const timeLimit = parseInt(btn.dataset.timeLimit); // in minutes
-
-                    // Combine date and start_time to create a Date object for session start
-                    const sessionStartDateTime = new Date(`${sessionDate}T${startTime}:00`);
-                    // Calculate session end time by adding timeLimit minutes
-                    const sessionEndDateTime = new Date(sessionStartDateTime.getTime() + (timeLimit * 60 * 1000));
-                    
-                    // The QR expiry should be the session end time
-                    const expiry = Math.floor(sessionEndDateTime.getTime() / 1000); 
-
-                    const payload = { session_id: sid, expiry: expiry };
-
-                    const qrDiv = document.getElementById("qr-" + sid);
-                    qrDiv.innerHTML = ""; // clear old QR
-                    QRCode.toCanvas(JSON.stringify(payload), { width: 140 }, (err, canvas) => {
-                        if (err) {
-                            console.error(err);
-                            alert("Failed to generate QR code.");
-                        } else {
-                            canvas.classList.add("qr-canvas");
-                            qrDiv.appendChild(canvas);
-                        }
-                    });
-
-                    const expiryText = new Date(expiry * 1000).toLocaleString(); // Use toLocaleString for full date and time
-                    document.getElementById("expiry-" + sid).textContent = "⏳ Valid until " + expiryText;
-                });
-            });
         });
     </script>
 </body>
