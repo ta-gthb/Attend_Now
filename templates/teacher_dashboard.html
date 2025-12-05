@@ -95,11 +95,11 @@
         <h4>📅 Your Class Sessions</h4>
 
         {% set year_sessions = {} %}
-        {% for sid, subject, date, time, limit, year, department, semester in sessions %}
+        {% for sid, subject, date, time, limit, year, department, semester, qr_data, qr_expiry in sessions %}
             {% if year not in year_sessions %}
                 {% set _ = year_sessions.update({year: []}) %}
             {% endif %}
-            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department, semester)) %}
+            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department, semester, qr_data, qr_expiry)) %}
         {% endfor %}
 
         {% for year, session_list in year_sessions.items() %}
@@ -125,7 +125,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for sid, subject, date, time, limit, department, semester in session_list %}
+                        {% for sid, subject, date, time, limit, department, semester, qr_data, qr_expiry in session_list %}
                         <tr>
                             <td>{{ subject }}</td>
                             <td>{{ date }}</td>
@@ -138,10 +138,15 @@
                                 <a href="/teacher/session/{{ sid }}/delete" class="btn btn-sm btn-danger ms-1">🗑️ Delete</a>
                             </td>
                             <td class="text-center">
-                                <a href="/generate-qr/{{ sid }}" target="_blank" class="btn btn-sm btn-primary">
-                                    📷 Generate QR
+                                <a href="/generate-qr/{{ sid }}" target="_blank" class="btn btn-sm {% if qr_data %}btn-info{% else %}btn-primary{% endif %}">
+                                    {% if qr_data %}
+                                        📷 Show QR
+                                    {% else %}
+                                        📷 Generate QR
+                                    {% endif %}
                                 </a>
-                            </td>                        </tr>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>

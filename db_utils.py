@@ -71,7 +71,9 @@ def init_db():
             time_limit INTEGER NOT NULL,
             year TEXT NOT NULL,
             department TEXT REFERENCES departments(name),
-            semester TEXT
+            semester TEXT,
+            qr_code_data TEXT,
+            qr_code_expiry BIGINT
         );
 
         CREATE TABLE attendance (

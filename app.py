@@ -445,32 +445,36 @@ def generate_qr_code(session_id):
     if not sess:
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
 
-    # --- Robust time_limit handling ---
-    time_limit_minutes = sess.get('time_limit')
-    if time_limit_minutes is None:
-        # Default to a safe value (e.g., 5 minutes) if time_limit is not set in the database.
-        # This prevents the QR code from being generated with a 'null' expiry.
-        time_limit_minutes = 5 
-        print(f"WARNING: time_limit for session {session_id} is NULL in database. Defaulting to {time_limit_minutes} minutes.")
-
-    # Generate QR payload
-    # Use a specific timezone (e.g., IST) to ensure consistent time recording.
-    print(f"DEBUG: Generating QR for session_id: {session_id}")
-    print(f"DEBUG: Session time_limit from DB (or default): {time_limit_minutes} minutes")
-    
     current_utc_time = int(time.time())
-    print(f"DEBUG: Current UTC timestamp (int(time.time())): {current_utc_time}")
 
-    time_limit_seconds = time_limit_minutes * 60
-    print(f"DEBUG: time_limit converted to seconds: {time_limit_seconds}")
-    
-    expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
-    print(f"DEBUG: Calculated QR Expiry timestamp (UTC): {expiry}")
-    qr_payload = {"session_id": str(session_id), "expiry": expiry}
-    print(f"DEBUG: QR Payload before encoding: {qr_payload}")
+    # Check if a valid QR code already exists
+    if sess['qr_code_data'] and sess['qr_code_expiry'] and sess['qr_code_expiry'] > current_utc_time:
+        qr_payload_str = sess['qr_code_data']
+        expiry = sess['qr_code_expiry']
+        
+    else:
+        # --- Robust time_limit handling ---
+        time_limit_minutes = sess.get('time_limit')
+        if time_limit_minutes is None:
+            time_limit_minutes = 5 
+            print(f"WARNING: time_limit for session {session_id} is NULL in database. Defaulting to {time_limit_minutes} minutes.")
 
-    # Generate QR image
-    qr_img = qrcode.make(json.dumps(qr_payload))
+        time_limit_seconds = time_limit_minutes * 60
+        expiry = current_utc_time + time_limit_seconds
+        
+        qr_payload = {"session_id": str(session_id), "expiry": expiry}
+        qr_payload_str = json.dumps(qr_payload)
+
+        # Save the new QR code to the database
+        with get_connection() as conn:
+            with conn.cursor() as c:
+                c.execute(
+                    "UPDATE sessions SET qr_code_data = %s, qr_code_expiry = %s WHERE id = %s",
+                    (qr_payload_str, expiry, session_id)
+                )
+
+    # Generate QR image from payload string
+    qr_img = qrcode.make(qr_payload_str)
     buf = io.BytesIO()
     qr_img.save(buf, format="PNG")
     qr_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -556,7 +560,8 @@ def teacher_dashboard():
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c_select:
             c_select.execute('''
             SELECT sessions.id, subjects.subject_name, sessions.date, sessions.start_time,
-                   sessions.time_limit, sessions.year, sessions.department, sessions.semester
+                   sessions.time_limit, sessions.year, sessions.department, sessions.semester,
+                   sessions.qr_code_data, sessions.qr_code_expiry
             FROM sessions
             JOIN subjects ON sessions.subject_id = subjects.id
             WHERE sessions.teacher_id = %s
