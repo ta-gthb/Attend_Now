@@ -172,14 +172,14 @@
                     const subject = allSubjectsData.find(s => String(s.id) === String(selectedSubjectId));
                     if (subject && subject.semester) {
                         semesterSelect.value = subject.semester;
-                        semesterSelect.disabled = true; // Disable manual change
+                        // No longer disabling the select to ensure value is always sent
                     } else {
                         semesterSelect.value = ""; // Clear if no semester found
-                        semesterSelect.disabled = false; // Enable if no semester found
+                        // No longer enabling the select as it's never disabled
                     }
                 } else {
                     semesterSelect.value = ""; // Clear if no subject selected
-                    semesterSelect.disabled = false; // Enable if no subject selected
+                    // No longer enabling the select as it's never disabled
                 }
             }
 
