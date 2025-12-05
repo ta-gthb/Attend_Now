@@ -243,7 +243,11 @@ def mark_attendance():
         session_id = qr_data.get("session_id")
         expiry = qr_data.get("expiry")
 
-        if not session_id or not expiry or int(time.time()) > expiry:
+        # Use a specific timezone (e.g., IST) to ensure consistent time recording.
+        ist = pytz.timezone('Asia/Kolkata')
+        now_timestamp = int(datetime.now(ist).timestamp())
+
+        if not session_id or not expiry or now_timestamp > expiry:
             return "Invalid or expired QR code.", 400
 
         # Use a specific timezone (e.g., IST) to ensure consistent time recording.
@@ -437,8 +441,11 @@ def generate_qr(session_id):
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
 
     # Generate QR payload
-    # expiry = int(time.time()) + 300  # valid 5 minutes
-    expiry = int(time.time()) + (sess['time_limit'] * 60) # valid for session time_limit in seconds
+    # Use a specific timezone (e.g., IST) to ensure consistent time recording.
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
+    expiry_datetime = now + timedelta(minutes=sess['time_limit'])
+    expiry = int(expiry_datetime.timestamp())
     qr_payload = {"session_id": session_id, "expiry": expiry}
 
     # Generate QR image
