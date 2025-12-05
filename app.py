@@ -445,8 +445,15 @@ def generate_qr(session_id):
     # Use a specific timezone (e.g., IST) to ensure consistent time recording.
     print(f"DEBUG: Generating QR for session_id: {session_id}")
     print(f"DEBUG: Session time_limit: {sess['time_limit']} minutes")
-    expiry = int(time.time()) + (sess['time_limit'] * 60) # valid for session time_limit in seconds
-    print(f"DEBUG: QR Expiry timestamp (UTC): {expiry}")
+    
+    current_utc_time = int(time.time())
+    print(f"DEBUG: Current UTC timestamp (int(time.time())): {current_utc_time}")
+    
+    time_limit_seconds = sess['time_limit'] * 60
+    print(f"DEBUG: time_limit converted to seconds: {time_limit_seconds}")
+    
+    expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
+    print(f"DEBUG: Calculated QR Expiry timestamp (UTC): {expiry}")
     qr_payload = {"session_id": session_id, "expiry": expiry}
 
     # Generate QR image
