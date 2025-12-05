@@ -437,7 +437,7 @@ def generate_qr_code(session_id):
                 SELECT s.*, sub.name as subject_name 
                 FROM sessions s 
                 JOIN subjects sub ON s.subject_id = sub.id
-                JOIN teacher_subjects ts ON sub.id = ts.subject_id
+                JOIN teacher_subject ts ON sub.id = ts.subject_id
                 WHERE s.id = %s AND ts.teacher_id = %s
             """, (session_id, session.get("teacher_id")))
             sess = c.fetchone()
