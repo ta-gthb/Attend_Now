@@ -441,16 +441,23 @@ def generate_qr(session_id):
     if not sess:
         return "<h3>❌ Invalid session or not authorized.</h3><a href='/teacher/dashboard'>Back</a>"
 
+    # --- Robust time_limit handling ---
+    time_limit_minutes = sess.get('time_limit')
+    if time_limit_minutes is None:
+        # Default to a safe value (e.g., 5 minutes) if time_limit is not set in the database.
+        # This prevents the QR code from being generated with a 'null' expiry.
+        time_limit_minutes = 5 
+        print(f"WARNING: time_limit for session {session_id} is NULL in database. Defaulting to {time_limit_minutes} minutes.")
+
     # Generate QR payload
     # Use a specific timezone (e.g., IST) to ensure consistent time recording.
     print(f"DEBUG: Generating QR for session_id: {session_id}")
-    print(f"DEBUG: Session time_limit: {sess['time_limit']} minutes")
+    print(f"DEBUG: Session time_limit from DB (or default): {time_limit_minutes} minutes")
     
     current_utc_time = int(time.time())
     print(f"DEBUG: Current UTC timestamp (int(time.time())): {current_utc_time}")
-    print(f"DEBUG: Type of sess['time_limit']: {type(sess['time_limit'])}, Value: {sess['time_limit']}")
 
-    time_limit_seconds = sess['time_limit'] * 60
+    time_limit_seconds = time_limit_minutes * 60
     print(f"DEBUG: time_limit converted to seconds: {time_limit_seconds}")
     
     expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
