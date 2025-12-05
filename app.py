@@ -515,6 +515,7 @@ def teacher_dashboard():
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ''', (tid, subject_id, date, start_time, time_limit, year, department, semester))
                     conn.commit()
+                    flash(f"Session created successfully! Time limit set to {time_limit} minutes.", "success")
 
             except Exception as e:
                 return f"An error occurred while creating the session: {str(e)}", 500
