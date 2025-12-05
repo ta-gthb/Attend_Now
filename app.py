@@ -434,7 +434,7 @@ def generate_qr_code(session_id):
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
             # Check if teacher is authorized for this session
             c.execute("""
-                SELECT s.*, sub.name as subject_name 
+                SELECT s.*, sub.subject_name as subject_name 
                 FROM sessions s 
                 JOIN subjects sub ON s.subject_id = sub.id
                 JOIN teacher_subject ts ON sub.id = ts.subject_id
