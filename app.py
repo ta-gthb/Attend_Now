@@ -431,7 +431,7 @@ def generate_qr_code(session_id):
         return "Not authorized", 403
 
     with get_connection() as conn:
-        with conn.cursor(dictionary=True) as c:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c:
             # Check if teacher is authorized for this session
             c.execute("""
                 SELECT s.*, sub.name as subject_name 
