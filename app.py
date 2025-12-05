@@ -1095,6 +1095,7 @@ def delete_teacher(teacher_id):
 
     with get_connection() as conn:
         with conn.cursor() as c:
+            c.execute("DELETE FROM sessions WHERE teacher_id = %s", (teacher_id,))
             c.execute("DELETE FROM teacher_subject WHERE teacher_id = %s", (teacher_id,))
             c.execute("DELETE FROM teacher_department WHERE teacher_id = %s", (teacher_id,))
             c.execute("DELETE FROM teachers WHERE id = %s", (teacher_id,))
