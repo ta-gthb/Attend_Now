@@ -235,6 +235,7 @@ def mark_attendance():
         return "Not logged in", 401
 
     qr_data_str = request.form.get('qr_data')
+    print(f"DEBUG: Mark Attendance - Raw qr_data_str received: {qr_data_str}")
     if not qr_data_str:
         return "No QR data received", 400
 
