@@ -456,6 +456,7 @@ def generate_qr(session_id):
     expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
     print(f"DEBUG: Calculated QR Expiry timestamp (UTC): {expiry}")
     qr_payload = {"session_id": session_id, "expiry": expiry}
+    print(f"DEBUG: QR Payload before encoding: {qr_payload}")
 
     # Generate QR image
     qr_img = qrcode.make(json.dumps(qr_payload))
