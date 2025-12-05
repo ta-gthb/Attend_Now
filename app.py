@@ -446,11 +446,11 @@ def generate_qr(session_id):
     print(f"DEBUG: Generating QR for session_id: {session_id}")
     print(f"DEBUG: Session time_limit: {sess['time_limit']} minutes")
     
-    current_utc_time = int(time.time())
-    print(f"DEBUG: Current UTC timestamp (int(time.time())): {current_utc_time}")
+        current_utc_time = int(time.time())
+        print(f"DEBUG: Current UTC timestamp (int(time.time())): {current_utc_time}")
+        print(f"DEBUG: Type of sess['time_limit']: {type(sess['time_limit'])}, Value: {sess['time_limit']}")
     
-    time_limit_seconds = sess['time_limit'] * 60
-    print(f"DEBUG: time_limit converted to seconds: {time_limit_seconds}")
+        time_limit_seconds = sess['time_limit'] * 60    print(f"DEBUG: time_limit converted to seconds: {time_limit_seconds}")
     
     expiry = current_utc_time + time_limit_seconds # valid for session time_limit in seconds
     print(f"DEBUG: Calculated QR Expiry timestamp (UTC): {expiry}")
