@@ -57,6 +57,11 @@
             </div>
 
             <div class="mb-2">
+                <label class="form-label">QR Code Validity (Minutes)</label>
+                <input type="number" name="qr_code_validity" class="form-control" required>
+            </div>
+
+            <div class="mb-2">
                 <label class="form-label">Department</label>
                 <select class="form-select" name="department" required>
                     <option value="">Select Department</option>
@@ -95,11 +100,11 @@
         <h4>📅 Your Class Sessions</h4>
 
         {% set year_sessions = {} %}
-        {% for sid, subject, date, time, limit, year, department, semester, qr_data, qr_expiry in sessions %}
+        {% for sid, subject, date, time, limit, qr_validity, year, department, semester, qr_data, qr_expiry in sessions %}
             {% if year not in year_sessions %}
                 {% set _ = year_sessions.update({year: []}) %}
             {% endif %}
-            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, department, semester, qr_data, qr_expiry)) %}
+            {% set _ = year_sessions[year].append((sid, subject, date, time, limit, qr_validity, department, semester, qr_data, qr_expiry)) %}
         {% endfor %}
 
         {% for year, session_list in year_sessions.items() %}
@@ -120,12 +125,13 @@
                             <th>Semester</th>
                             <th>Start Time</th>
                             <th>Duration</th>
+                            <th>QR Validity</th>
                             <th>Actions</th>
                             <th class="text-center">QR Code</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for sid, subject, date, time, limit, department, semester, qr_data, qr_expiry in session_list %}
+                        {% for sid, subject, date, time, limit, qr_validity, department, semester, qr_data, qr_expiry in session_list %}
                         <tr>
                             <td>{{ subject }}</td>
                             <td>{{ date }}</td>
@@ -133,6 +139,7 @@
                             <td>{{ semester }}</td>
                             <td>{{ time }}</td>
                             <td>{{ limit }} min</td>
+                            <td>{{ qr_validity }} min</td>
                             <td>
                                 <a href="/teacher/session/{{ sid }}/export" class="btn btn-sm btn-success">📥 Export CSV</a>
                                 <a href="/teacher/session/{{ sid }}/delete" class="btn btn-sm btn-danger ms-1">🗑️ Delete</a>

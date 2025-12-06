@@ -69,6 +69,7 @@ def init_db():
             date DATE NOT NULL,
             start_time TIME NOT NULL,
             time_limit INTEGER NOT NULL,
+            qr_code_validity INTEGER,
             year TEXT NOT NULL,
             department TEXT REFERENCES departments(name),
             semester TEXT,

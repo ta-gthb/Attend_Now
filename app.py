@@ -447,14 +447,14 @@ def generate_qr_code(session_id):
         expiry = sess['qr_code_expiry']
         
     else:
-        # --- Robust time_limit handling ---
-        time_limit_minutes = sess.get('time_limit')
-        if time_limit_minutes is None:
-            time_limit_minutes = 5 
-            print(f"WARNING: time_limit for session {session_id} is NULL in database. Defaulting to {time_limit_minutes} minutes.")
+        # --- Robust qr_code_validity handling ---
+        qr_code_validity_minutes = sess.get('qr_code_validity')
+        if qr_code_validity_minutes is None:
+            qr_code_validity_minutes = 5 
+            print(f"WARNING: qr_code_validity for session {session_id} is NULL in database. Defaulting to {qr_code_validity_minutes} minutes.")
 
-        time_limit_seconds = time_limit_minutes * 60
-        expiry = current_utc_time + time_limit_seconds
+        qr_code_validity_seconds = qr_code_validity_minutes * 60
+        expiry = current_utc_time + qr_code_validity_seconds
         
         qr_payload = {"session_id": str(session_id), "expiry": expiry}
         qr_payload_str = json.dumps(qr_payload)
@@ -532,6 +532,7 @@ def teacher_dashboard():
                 date = request.form['date']
                 start_time = request.form['start_time']
                 time_limit = int(request.form['time_limit'])
+                qr_code_validity = int(request.form['qr_code_validity'])
                 year = request.form['year']
                 department = request.form['department']
                 semester = request.form['semester'] # Get semester from form
@@ -542,9 +543,9 @@ def teacher_dashboard():
                 with conn.cursor() as c_insert:
                     c_insert.execute('''
                         INSERT INTO sessions
-                        (teacher_id, subject_id, date, start_time, time_limit, year, department, semester)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ''', (tid, subject_id, date, start_time, time_limit, year, department, semester))
+                        (teacher_id, subject_id, date, start_time, time_limit, qr_code_validity, year, department, semester)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ''', (tid, subject_id, date, start_time, time_limit, qr_code_validity, year, department, semester))
                     conn.commit()
                     flash(f"Session created successfully! Time limit set to {time_limit} minutes.", "success")
 
@@ -554,7 +555,7 @@ def teacher_dashboard():
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as c_select:
             c_select.execute('''
             SELECT sessions.id, subjects.subject_name, sessions.date, sessions.start_time,
-                   sessions.time_limit, sessions.year, sessions.department, sessions.semester,
+                   sessions.time_limit, sessions.qr_code_validity, sessions.year, sessions.department, sessions.semester,
                    sessions.qr_code_data, sessions.qr_code_expiry
             FROM sessions
             JOIN subjects ON sessions.subject_id = subjects.id
