@@ -1163,7 +1163,6 @@ def delete_student(student_id):
                 c.execute("DELETE FROM students WHERE id = %s", (student_id,))
                 
                 conn.commit()
-        flash("Student and their attendance records have been deleted.", "success")
         return redirect(url_for('manage_students'))
 
     except Exception as e:
