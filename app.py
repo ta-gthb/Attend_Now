@@ -14,7 +14,7 @@ import csv
 import re
 import pytz
 from db_utils import (init_db, get_connection, get_all_departments, add_department,
-                      delete_department, promote_students, get_student_by_student_id, update_student_sign_count,
+                      delete_department, delete_student, promote_students, get_student_by_student_id, update_student_sign_count,
                       get_student_by_id, get_student_attendance_analytics, update_student_semester,
                       create_correction_request, get_all_correction_requests, update_correction_request_status)
 from math import radians, sin, cos, sqrt, atan2
@@ -1152,19 +1152,10 @@ def delete_campus(campus_id):
     return redirect(url_for('manage_campuses'))
 
 @app.route('/admin/delete-student/<int:student_id>', methods=['POST'])
-def delete_student(student_id):
+def delete_student_route(student_id):
     try:
-        with get_connection() as conn:
-            with conn.cursor() as c:
-                # First, delete attendance records associated with the student
-                c.execute("DELETE FROM attendance WHERE student_id = %s", (student_id,))
-                
-                # Then, delete the student
-                c.execute("DELETE FROM students WHERE id = %s", (student_id,))
-                
-                conn.commit()
+        delete_student(student_id)
         return redirect(url_for('manage_students'))
-
     except Exception as e:
         flash(f"Error deleting student: {e}", "error")
         return redirect(url_for('manage_students'))

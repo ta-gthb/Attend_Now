@@ -79,7 +79,7 @@ def init_db():
 
         CREATE TABLE attendance (
             id SERIAL PRIMARY KEY,
-            student_id INTEGER REFERENCES students(id),
+            student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
             session_id INTEGER REFERENCES sessions(id),
             date DATE NOT NULL,
             time TIME NOT NULL,
@@ -107,7 +107,7 @@ def init_db():
 
         CREATE TABLE correction_requests (
             id SERIAL PRIMARY KEY,
-            student_id INTEGER REFERENCES students(id),
+            student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
             message TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -148,6 +148,12 @@ def delete_department(dept_id):
         with conn.cursor() as cur:
             # Need to handle cascades or prevent deletion if in use
             cur.execute("DELETE FROM departments WHERE id = %s", (dept_id,))
+        conn.commit()
+
+def delete_student(student_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM students WHERE id = %s", (student_id,))
         conn.commit()
 
 def promote_students():
@@ -248,4 +254,3 @@ def update_correction_request_status(request_id, status):
                 (status, request_id)
             )
         conn.commit()
-
