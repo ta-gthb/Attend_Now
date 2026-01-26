@@ -17,7 +17,7 @@
             <select name="department" class="form-select">
                 <option value="">All</option>
                 {% for dept in departments %}
-                    <option value="{{ dept[1] }}" {% if selected_dept == dept[1] %}selected{% endif %}>{{ dept[1] }}</option>
+                    <option value="{{ dept['name'] }}" {% if selected_dept == dept['name'] %}selected{% endif %}>{{ dept['name'] }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -68,7 +68,7 @@
                     <td>{{ student['year'] }}</td>
                     <td>
                         <a href="/admin/edit-student/{{ student['id'] }}" class="btn btn-warning btn-sm">✏️ Edit</a>
-                        <form action="{{ url_for('delete_student', student_id=student['id']) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this student?');">
+                        <form action="{{ url_for('delete_student_route', student_id=student['id']) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this student?');">
                             <button class="btn btn-danger btn-sm">🗑️ Delete</button>
                         </form>
                     </td>
