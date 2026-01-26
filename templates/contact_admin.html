@@ -17,13 +17,23 @@
         <h2>Contact Admin</h2>
         <p>Use the form below to request a correction to your profile information.</p>
         
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <div class="mb-3">
+            <a href="{{ url_for('view_request_status') }}" class="btn btn-info">📋 View Request Status</a>
+        </div>
+
+        {% if success_message %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ success_message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endif %}
+
+        {% if error_message %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ error_message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endif %}
 
         <form method="POST" action="{{ url_for('contact_admin') }}">
             <div class="mb-3">

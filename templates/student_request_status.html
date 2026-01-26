@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Status</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status-approved {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status-rejected {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('student_dashboard') }}">AttendNow</a>
+            <span class="navbar-text text-white">Welcome, {{ student_name }}</span>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2>📋 Your Correction Requests</h2>
+        
+        <div class="mb-3">
+            <a href="{{ url_for('contact_admin') }}" class="btn btn-primary">✉️ Send New Request</a>
+            <a href="{{ url_for('student_dashboard') }}" class="btn btn-secondary">🏠 Back to Dashboard</a>
+        </div>
+
+        {% if requests %}
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Request History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Request ID</th>
+                                    <th>Message</th>
+                                    <th>Status</th>
+                                    <th>Submitted On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for req in requests %}
+                                <tr>
+                                    <td>#{{ req['id'] }}</td>
+                                    <td>{{ req['message'] }}</td>
+                                    <td>
+                                        {% if req['status'] == 'pending' %}
+                                            <span class="status-pending">⏳ Pending</span>
+                                        {% elif req['status'] == 'approved' %}
+                                            <span class="status-approved">✅ Approved</span>
+                                        {% elif req['status'] == 'rejected' %}
+                                            <span class="status-rejected">❌ Rejected</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ req['status'] }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if req['created_at'] %}
+                                            {{ req['created_at'].strftime('%d-%m-%Y %H:%M') if req['created_at'].__class__.__name__ == 'datetime' else req['created_at'] }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">ℹ️ No Requests Yet</h4>
+                <p>You haven't sent any requests to the admin yet. Click the button below to send your first request.</p>
+                <hr>
+                <a href="{{ url_for('contact_admin') }}" class="btn btn-primary">✉️ Send a Request</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

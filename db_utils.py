@@ -254,3 +254,21 @@ def update_correction_request_status(request_id, status):
                 (status, request_id)
             )
         conn.commit()
+
+def get_student_correction_requests(student_id):
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    id,
+                    message,
+                    status,
+                    created_at
+                FROM
+                    correction_requests
+                WHERE
+                    student_id = %s
+                ORDER BY
+                    created_at DESC
+            """, (student_id,))
+            return cur.fetchall()

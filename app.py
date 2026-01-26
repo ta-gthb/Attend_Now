@@ -16,7 +16,7 @@ import pytz
 from db_utils import (init_db, get_connection, get_all_departments, add_department,
                       delete_department, delete_student, promote_students, get_student_by_student_id, update_student_sign_count,
                       get_student_by_id, get_student_attendance_analytics, update_student_semester,
-                      create_correction_request, get_all_correction_requests, update_correction_request_status)
+                      create_correction_request, get_all_correction_requests, update_correction_request_status, get_student_correction_requests)
 from math import radians, sin, cos, sqrt, atan2
 import qrcode
 import io
@@ -1244,16 +1244,26 @@ def contact_admin():
     if "student_id" not in session:
         return redirect(url_for("student_login"))
 
+    success_message = None
+    error_message = None
+
     if request.method == 'POST':
         message = request.form.get('message')
         if message:
             create_correction_request(session['student_id'], message)
-            flash('Your request has been sent to the admin.', 'success')
-            return redirect(url_for('student_dashboard'))
+            success_message = 'Your request has been sent to the admin.'
         else:
-            flash('Message cannot be empty.', 'error')
+            error_message = 'Message cannot be empty.'
 
-    return render_template('contact_admin.html')
+    return render_template('contact_admin.html', success_message=success_message, error_message=error_message)
+
+@app.route('/student/view-request-status')
+def view_request_status():
+    if "student_id" not in session:
+        return redirect(url_for("student_login"))
+
+    requests = get_student_correction_requests(session['student_id'])
+    return render_template('student_request_status.html', requests=requests, student_name=session['student_name'])
 
 @app.route('/admin/view_requests')
 def view_requests():
