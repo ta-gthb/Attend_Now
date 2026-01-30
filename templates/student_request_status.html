@@ -68,11 +68,11 @@
                                     <td>{{ req['message'] }}</td>
                                     <td>
                                         {% if req['status'] == 'pending' %}
-                                            <span class="status-pending">⏳ Pending</span>
+                                            <span class="status-pending">⏳Pending</span>
                                         {% elif req['status'] == 'approved' %}
-                                            <span class="status-approved">✅ Approved</span>
+                                            <span class="status-approved">✅Approved</span>
                                         {% elif req['status'] == 'rejected' %}
-                                            <span class="status-rejected">❌ Rejected</span>
+                                            <span class="status-rejected">❌Rejected</span>
                                         {% else %}
                                             <span class="badge bg-secondary">{{ req['status'] }}</span>
                                         {% endif %}
